@@ -62,6 +62,36 @@ int seq_open(struct file *file, const struct seq_operations *op)
 }
 EXPORT_SYMBOL(seq_open);
 
+/**
+ *	seq_reserve -	increase initial buffer for sequential file
+ *	@m:	target buffer
+ *	@size: size in bytes to reserve
+ *
+ *	seq_reserve() increases the initial size of the seq_file buffer.  Can
+ *	be used to avoid future allocations and repeated calls to the show
+ *	function for large buffers of known size.
+ *	Returns 0 on success, or -ENOMEM if the buffer cannot be allocated.
+ */
+int seq_reserve(struct seq_file *m, size_t size)
+{
+	void *buf;
+
+	/* don't ask for more than the kmalloc() max size */
+	if (size > KMALLOC_MAX_SIZE)
+		size = KMALLOC_MAX_SIZE;
+
+	buf = kmalloc(size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	kfree(m->buf);
+	m->buf = buf;
+	m->size = size;
+
+	return 0;
+}
+EXPORT_SYMBOL(seq_reserve);
+
 static int traverse(struct seq_file *m, loff_t offset)
 {
 	loff_t pos = 0, index;
