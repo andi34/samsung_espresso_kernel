@@ -1425,6 +1425,7 @@ _DeferredAllocPagetables(MMU_HEAP *pMMUHeap, IMG_DEV_VIRTADDR DevVAddr, IMG_UINT
 		&& ppsPTInfoList[i]->PTPageCpuVAddr == IMG_NULL)
 		{
 			IMG_DEV_PHYADDR	sDevPAddr;
+			sDevPAddr.uiAddr = 0;
 #if defined(SUPPORT_SGX_MMU_DUMMY_PAGE)
 			IMG_UINT32 *pui32Tmp;
 			IMG_UINT32 j;
