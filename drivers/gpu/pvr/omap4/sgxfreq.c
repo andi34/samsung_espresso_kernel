@@ -334,7 +334,7 @@ int sgxfreq_init(struct device *dev)
 	rcu_read_unlock();
 
 	mutex_init(&sfd.freq_mutex);
-	sfd.freq_limit = sfd.freq_list[sfd.freq_cnt - 1];
+	sfd.freq_limit = SYS_SGX_CLOCK_SPEED;
 	sgxfreq_set_freq_request(sfd.freq_list[sfd.freq_cnt - 1]);
 	sfd.sgx_data.clk_on = false;
 	sfd.sgx_data.active = false;
