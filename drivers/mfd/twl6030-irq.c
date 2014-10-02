@@ -234,8 +234,7 @@ static int twl6030_irq_thread(void *data)
 		* value is written, all three registers are cleared on a
 		* single byte write, so we just use 0x0 to clear.
 		*/
-		ret = twl_i2c_write_u8(TWL_MODULE_PIH, 0x00,
-				REG_INT_STS_A);
+		ret = twl_i2c_write_u8(TWL_MODULE_PIH, 0x00, REG_INT_STS_A);
 		if (ret)
 			pr_warning("twl6030: I2C error in clearing PIH ISR\n");
 
