@@ -853,7 +853,7 @@
 #define PI_C865_PID	0xe0a0  /* PI C-865 Piezomotor Controller */
 #define PI_C857_PID	0xe0a1  /* PI Encoder Trigger Box */
 
-#define PI_VID              0x1a72  /* Vendor ID */
+#define PI_VID		0x1a72  /* Vendor ID */
 #define PI_C866_PID	0x1000  /* PI C-866 Piezomotor Controller */
 #define PI_C663_PID	0x1001  /* PI C-663 Mercury-Step */
 #define PI_C725_PID	0x1002  /* PI C-725 Piezomotor Controller */

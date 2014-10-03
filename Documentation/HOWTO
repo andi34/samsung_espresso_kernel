@@ -227,7 +227,7 @@ branches.  These different branches are:
 3.x kernel tree
 -----------------
 3.x kernels are maintained by Linus Torvalds, and can be found on
-kernel.org in the pub/linux/kernel/v3.x/ directory.  Its development
+kernel.org in the pub/linux/kernel/v3.x/ directory. Its development
 process is as follows:
   - As soon as a new kernel is released a two weeks window is open,
     during this period of time maintainers can submit big diffs to

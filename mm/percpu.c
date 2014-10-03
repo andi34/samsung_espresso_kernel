@@ -1633,7 +1633,7 @@ int __init pcpu_embed_first_chunk(size_t reserved_size, size_t dyn_size,
 	}
 
 	/*
-	 * Copy data and free unused parts.  This should happen after all
+	 * Copy data and free unused parts. This should happen after all
 	 * allocations are complete; otherwise, we may end up with
 	 * overlapping groups.
 	 */

@@ -729,7 +729,7 @@ static int pci_pm_suspend_noirq(struct device *dev)
 	/*
 	 * Some BIOSes from ASUS have a bug: If a USB EHCI host controller's
 	 * PCI COMMAND register isn't 0, the BIOS assumes that the controller
-	 * hasn't been quiesced and tries to turn it off.  If the controller
+	 * hasn't been quiesced and tries to turn it off. If the controller
 	 * is already in D3, this can hang or cause memory corruption.
 	 *
 	 * Since the value of the COMMAND register doesn't matter once the

@@ -1428,7 +1428,7 @@ static struct dmi_system_id __initdata acpi_dmi_table_late[] = {
 	 * is enabled.  This input is incorrectly designated the
 	 * ISA IRQ 0 via an interrupt source override even though
 	 * it is wired to the output of the master 8259A and INTIN0
-	 * is not connected at all.  Force ignoring BIOS IRQ0
+	 * is not connected at all. Force ignoring BIOS IRQ0
 	 * override in that cases.
 	 */
 	{

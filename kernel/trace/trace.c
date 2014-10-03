@@ -4601,7 +4601,7 @@ void ftrace_dump(enum ftrace_dump_mode oops_dump_mode)
 	for_each_tracing_cpu(cpu) {
 		atomic_dec(&iter.tr->data[cpu]->disabled);
 	}
- 	atomic_dec(&dump_running);
+	atomic_dec(&dump_running);
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(ftrace_dump);

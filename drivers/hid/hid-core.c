@@ -385,7 +385,7 @@ static int hid_parser_global(struct hid_parser *parser, struct hid_item *item)
 		    parser->global.report_id >= HID_MAX_IDS) {
 			hid_err(parser->device, "report_id %u is invalid\n",
 				parser->global.report_id);
- 			return -1;
+			return -1;
 		}
 		return 0;
 

@@ -9,8 +9,8 @@ typedef struct page *new_page_t(struct page *, unsigned long private, int **);
 /*
  * MIGRATE_ASYNC means never block
  * MIGRATE_SYNC_LIGHT in the current implementation means to allow blocking
- *	on most operations but not ->writepage as the potential stall time
- *	is too significant
+ * on most operations but not ->writepage as the potential stall time
+ * is too significant
  * MIGRATE_SYNC will block when migrating pages
  */
 enum migrate_mode {

@@ -358,7 +358,7 @@ static void option_instat_callback(struct urb *urb);
 #define SAMSUNG_VENDOR_ID                       0x04e8
 #define SAMSUNG_PRODUCT_GT_B3730                0x6889
 
-/* YUGA products  www.yuga-info.com gavin.kx@qq.com */
+/* YUGA products www.yuga-info.com gavin.kx@qq.com */
 #define YUGA_VENDOR_ID				0x257A
 #define YUGA_PRODUCT_CEM600			0x1601
 #define YUGA_PRODUCT_CEM610			0x1602

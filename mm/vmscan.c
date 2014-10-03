@@ -285,7 +285,7 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		 * shrinkers to return -1 all the time. This results in a large
 		 * nr being built up so when a shrink that can do some work
 		 * comes along it empties the entire cache due to nr >>>
-		 * max_pass.  This is bad for sustaining a working set in
+		 * max_pass. This is bad for sustaining a working set in
 		 * memory.
 		 *
 		 * Hence only allow the shrinker to scan the entire cache when
@@ -3137,7 +3137,7 @@ int kswapd_run(int nid)
 }
 
 /*
- * Called by memory hotplug when all memory in a node is offlined.  Caller must
+ * Called by memory hotplug when all memory in a node is offlined. Caller must
  * hold lock_memory_hotplug().
  */
 void kswapd_stop(int nid)

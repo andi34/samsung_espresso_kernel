@@ -813,7 +813,7 @@ void usb_enable_xhci_ports(struct pci_dev *xhci_pdev)
 			"to xHCI: 0x%x\n", ports_available);
 #else
 	/* Don't switchover the ports if the user hasn't compiled the xHCI
-	 * driver.  Otherwise they will see "dead" USB ports that don't power
+	 * driver. Otherwise they will see "dead" USB ports that don't power
 	 * the devices.
 	 */
 	dev_warn(&xhci_pdev->dev,
