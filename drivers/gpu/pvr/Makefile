@@ -112,4 +112,6 @@ pvrsrvkm-y := \
 
 pvrsrvkm-$(CONFIG_ION_OMAP) += ion.o
 
+pvrsrvkm-$(CONFIG_GCBV) += gc_bvmapping.o
+
 obj-$(CONFIG_PVR_SGX) += pvrsrvkm.o
