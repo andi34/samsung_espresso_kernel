@@ -73,11 +73,13 @@
 #define MASK_SWITCH_USB_AP	0x01
 #define MASK_SWITCH_UART_AP	0x02
 
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-#define SWCAP_TRIM_OFFSET			0x10
-#else
 #define SWCAP_TRIM_OFFSET			0x22
-#endif
+#define SWCAP_TRIM_OFFSET_HOST			(-0x4E)
+#define BGTRIM_TRIM_OFFSET_HOST			(-0x3FA0)
+#define RTERM_RMX_OFFSET_HOST			(0x20)
+#define RTERM_CAL_OFFSET_HOST			(0x0)
+#define HS_CODE_SEL_HOST	(0x1)
+#define SQ_OFF_CODE_DAC3_OFFSET_HOST	(0x3)
 
 static char *device_names[] = {
 	[P30_OTG]			= "otg",
@@ -159,11 +161,7 @@ static struct gpio connector_gpios[] = {
 enum {
 	GPIO_USB_SEL1 = 0,
 	GPIO_USB_SEL2,
-	GPIO_UART_SEL,
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-	GPIO_CP_USB_EN,
-	GPIO_AP_CP_INT1
-#endif
+	GPIO_UART_SEL
 };
 
 static struct gpio uart_sw_gpios[] = {
@@ -179,16 +177,6 @@ static struct gpio uart_sw_gpios[] = {
 		.flags	= GPIOF_OUT_INIT_LOW,
 		.label	= "UART_SEL",
 	},
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-	[GPIO_CP_USB_EN] = {
-		.flags	= GPIOF_OUT_INIT_HIGH,
-		.label	= "CP_USB_EN",
-	},
-	[GPIO_AP_CP_INT1] = {
-		.flags	= GPIOF_OUT_INIT_LOW,
-		.label	= "AP_CP_INT1",
-	 }
-#endif
 };
 
 /* STMPE811 */
@@ -432,10 +420,6 @@ static void espresso_cp_usb_attach(void)
 	gpio_set_value(uart_sw_gpios[GPIO_USB_SEL2].gpio, 0);
 
 	sysfs_notify(&sec_switch_dev->kobj, NULL, "usb_sel");
-
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-	gpio_set_value(uart_sw_gpios[GPIO_CP_USB_EN].gpio, 1);
-#endif
 }
 
 static void espresso_cp_usb_detach(void)
@@ -444,18 +428,7 @@ static void espresso_cp_usb_detach(void)
 	gpio_set_value(uart_sw_gpios[GPIO_USB_SEL2].gpio, 0);
 
 	sysfs_notify(&sec_switch_dev->kobj, NULL, "usb_sel");
-
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-	gpio_set_value(uart_sw_gpios[GPIO_CP_USB_EN].gpio, 0);
-#endif
 }
-
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-static void espresso_cp_uart_attach(void)
-{
-	gpio_set_value(uart_sw_gpios[GPIO_AP_CP_INT1].gpio, 1);
-}
-#endif
 
 static void espresso_ap_uart_actions(void)
 {
@@ -643,9 +616,6 @@ static void espresso_30pin_detected(int device, bool connected)
 				espresso_cp_uart_actions();
 			else
 				espresso_ap_uart_actions();
-#if defined(CONFIG_MACH_SAMSUNG_ESPRESSO_CHN_CMCC)
-			espresso_cp_uart_attach();
-#endif
 		} else
 			check_jig_status(0);
 		break;
