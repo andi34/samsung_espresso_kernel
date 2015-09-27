@@ -77,29 +77,3 @@ obj-$(CONFIG_MACH_SAMSUNG_ESPRESSO_10)	+= board-espresso10-muxset-r00.o \
 					   board-espresso10-muxset-r07.o \
 				board-espresso10-usa-bby-muxset-r07.o \
 					   board-espresso10-muxset-r08.o
-
-obj-$(CONFIG_MACH_SAMSUNG_SUPERIOR)	+= board-superior.o \
-					   board-superior-emif.o \
-					   board-superior-serial.o \
-					   board-superior-pmic.o \
-					   board-superior-sdio.o \
-					   board-superior-input.o \
-					   board-superior-audio.o \
-					   board-superior-connector.o \
-					   board-superior-modems.o \
-					   board-superior-display.o \
-					   board-superior-bluetooth.o \
-					   board-superior-wifi.o \
-					   board-superior-power.o \
-					   board-superior-vibrator.o \
-					   board-superior-sensors.o \
-					   board-superior-nfc.o \
-					   board-superior-fmradio.o \
-					   board-superior-camera.o \
-					   board-superior-spiflash.o \
-					   board-superior-temp.o
-
-obj-$(CONFIG_MACH_SAMSUNG_SUPERIOR)	+= board-superior-muxset-r00.o \
-					   board-superior-muxset-r01.o \
-					   board-superior-muxset-r02.o \
-					   board-superior-muxset-r04.o
