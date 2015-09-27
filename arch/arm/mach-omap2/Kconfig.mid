@@ -1,13 +1,3 @@
-config MACH_SAMSUNG_GOKEY
-	bool "Samsung Gokey (YP-GH1) Board"
-	default n
-	select MACH_OMAP4_SAMSUNG
-	select FW_SAMSUNG_GOKEY_TSP
-
-config FW_SAMSUNG_GOKEY_TSP
-	bool
-	default n
-
 config MP3_LP_MODE
 	bool "mp3 LP"
 	default n

@@ -161,7 +161,6 @@ endif
 TSKEYFIRMWARE_DIRECTORY_CYPRESS = $(srctree)/firmware/cypress
 ifeq ($(shell test -d $(TSKEYFIRMWARE_DIRECTORY_CYPRESS) && echo yes),yes)
 fw-shipped-$(CONFIG_FW_SAMSUNG_SUPERIOR_TOUCH_KEY) += cypress/i9260.fw
-fw-shipped-$(CONFIG_FW_SAMSUNG_GOKEY_TSP) += cypress/gh1.fw
 else
 $(warning '$(TSPFIRMWARE_DIRECTORY)' directory dose not exist)
 endif
