@@ -68,11 +68,6 @@ static int board_mclk;
 #define CONFIG_SEC_DEV_JACK
 #endif
 
-#ifdef CONFIG_MACH_SAMSUNG_GOKEY
-/* Detect earjack one more */
-#define USE_EAR_GND_DETECT
-#endif /* CONFIG_MACH_SAMSUNG_GOKEY */
-
 #ifdef USE_EAR_GND_DETECT
 static struct gpio ear_gnd_det = {
 	.label = "EAR_GND_DET",
@@ -435,30 +430,6 @@ static int main_mic_bias_event(struct snd_soc_dapm_widget *w,
 				   WM8994_MICB1_ENA_MASK, val<<4);
 	return 0;
 }
-
-#ifdef CONFIG_MACH_SAMSUNG_GOKEY
-static int hp_mic_bias_event(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *kcontrol, int event)
-{
-	/* Harrison feature (use Codec Mic bias) */
-	struct snd_soc_codec *codec = w->codec;
-	int val = SND_SOC_DAPM_EVENT_ON(event);
-
-	pr_info("hp_mic_bias_event val=%x\n", val);
-
-	/* 5 LEFT SHIFTS : MICB2 ENA setting. */
-	snd_soc_update_bits(codec, WM8994_POWER_MANAGEMENT_1,
-		WM8994_MICB2_ENA_MASK, val<<WM8994_MICB2_ENA_SHIFT);
-
-	/* Ensure the MicBias2 mode to the bypass. */
-	snd_soc_update_bits(codec,
-	WM8958_MICBIAS2,
-	WM8958_MICB2_MODE_MASK,
-	WM8958_MICB2_MODE);
-
-	return 0;
-}
-#endif /* CONFIG_MACH_SAMSUNG_GOKEY */
 
 /* PM Constraint feature for the VOIP time stamp */
 static const struct soc_enum pm_mode_enum[] = {
@@ -870,12 +841,7 @@ const struct snd_soc_dapm_widget omap4_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("RCV", NULL),
 	SND_SOC_DAPM_LINE("LINEOUT", NULL),
 	SND_SOC_DAPM_MIC("Main Mic", main_mic_bias_event),
-#ifdef CONFIG_MACH_SAMSUNG_GOKEY
-	SND_SOC_DAPM_MIC("Headset Mic", hp_mic_bias_event),
-#else
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
-#endif
-
 	SND_SOC_DAPM_INPUT("VMID_INPUT"),
 	SND_SOC_DAPM_OUTPUT("VMID_OUTPUT"),
 };
@@ -1212,8 +1178,6 @@ int omap4_wm8994_init(struct snd_soc_pcm_runtime *rtd)
 
 #ifdef CONFIG_MACH_SAMSUNG_HARRISON
 	if (system_rev >= 6)
-#elif CONFIG_MACH_SAMSUNG_GOKEY
-	if (system_rev >= 1)
 #else
 	if (system_rev >= 0)
 #endif
@@ -1444,13 +1408,7 @@ static int __init omap4_audio_init(void)
 #ifdef USE_EAR_GND_DETECT
 	ear_gnd_det.gpio = omap_muxtbl_get_gpio_by_name(ear_gnd_det.label);
 	gpio_request(ear_gnd_det.gpio, "ear_gnd_det");
-
-#ifdef CONFIG_MACH_SAMSUNG_GOKEY
-	if (system_rev < 5)
-		gpio_direction_output(ear_gnd_det.gpio, 0);
-	else
-#endif /* CONFIG_MACH_SAMSUNG_GOKEY */
-		gpio_direction_input(ear_gnd_det.gpio);
+	gpio_direction_input(ear_gnd_det.gpio);
 #endif /* USE_EAR_GND_DETECT */
 	/* getting pm qos handle */
 	pm_qos_add_request(&pm_qos_handle, PM_QOS_CPU_DMA_LATENCY,
