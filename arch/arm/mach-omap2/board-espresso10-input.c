@@ -171,7 +171,7 @@ static void tsp_set_power(bool on)
 }
 
 static struct synaptics_fw_info espresso10_tsp_fw_info = {
-	.release_date = "0906",
+	.release_date = "1308",
 };
 
 static struct sec_ts_platform_data espresso10_ts_pdata = {
