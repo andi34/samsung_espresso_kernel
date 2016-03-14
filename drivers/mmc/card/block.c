@@ -1781,7 +1781,8 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		/* complete ongoing async transfer before issuing discard */
 		if (card->host->areq)
 			mmc_blk_issue_rw_rq(mq, NULL);
-		if (req->cmd_flags & REQ_SECURE)
+		if ((req->cmd_flags & REQ_SECURE) &&
+			(card->host->caps2 & MMC_CAP2_SECURE_ERASE_EN))
 			ret = mmc_blk_issue_secdiscard_rq(mq, req);
 		else
 			ret = mmc_blk_issue_discard_rq(mq, req);
@@ -2054,6 +2055,8 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	return ret;
 }
 
+#define CID_MANFID_SAMSUNG 0x15
+
 static const struct mmc_fixup blk_fixups[] = {
 	MMC_FIXUP("SEM02G", 0x2, 0x100, add_quirk, MMC_QUIRK_INAND_CMD38),
 	MMC_FIXUP("SEM04G", 0x2, 0x100, add_quirk, MMC_QUIRK_INAND_CMD38),
@@ -2075,6 +2078,35 @@ static const struct mmc_fixup blk_fixups[] = {
 		  MMC_QUIRK_BLK_NO_CMD23),
 	MMC_FIXUP("MMC32G", 0x11, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_BLK_NO_CMD23),
+
+	/* Some TLC movinand cards needs Sync operation for performance*/
+	MMC_FIXUP("S5U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("J5U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("J5U00B", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("J5U00A", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("L7U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("N5U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("K5U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("K5U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("K7U00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("M4G1YC", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("M8G1WA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("MAG2WA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+	MMC_FIXUP("MBG4WA", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
+			MMC_QUIRK_MOVINAND_TLC),
+
 	END_FIXUP
 };
 
