@@ -240,9 +240,11 @@ void omap_abe_clean_temporary_buffers(struct omap_abe *abe, u32 id)
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_BT_DL_ADDR,
 				   OMAP_ABE_S_BT_DL_SIZE);
+#if !defined(CONFIG_SND_OMAP4_ABE_USE_ALT_FW)
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_BT_DL_8_48_OSR_LP_DATA_ADDR,
 				   OMAP_ABE_S_BT_DL_8_48_OSR_LP_DATA_SIZE);
+#endif
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_BT_DL_48_8_HP_DATA_ADDR,
 				   OMAP_ABE_S_BT_DL_48_8_HP_DATA_SIZE);
@@ -981,15 +983,12 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					   ABE_PARAMETER_ERROR);
 		}
 		if (abe_port[id].format.f == 44100) {
-			abe->MultiFrame[18][1] =
-				ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL_PP);
+			abe->MultiFrame[18][1] = ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL_PP);
 			smem1 = MM_DL_44P1_WPTR_labelID;
 		} else {
 			abe->MultiFrame[18][1] = 0;
 			smem1 = smem_mm_dl;
 		}
-		/* able  interrupt to be generated at the first frame */
-		desc_pp.split_addr1 = 1;
 		copy_func_index = (u8) abe_dma_port_copy_subroutine_id(id);
 		dmareq_addr = abe_port[id].protocol.p.prot_pingpong.irq_addr;
 		dmareq_field = abe_port[id].protocol.p.prot_pingpong.irq_data;
@@ -1127,16 +1126,14 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		case OMAP_ABE_TONES_DL_PORT:
 			if (abe_port[id].format.f == 44100) {
 				smem1 = TONES_44P1_WPTR_labelID;
-				abe->MultiFrame[20][1] =
-				 ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_TONES_1211);
+				abe->MultiFrame[20][1] = ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_TONES_1211);
 			} else {
 				abe->MultiFrame[20][1] = 0;
 				smem1 = smem_tones_dl;
 			}
 			break;
 		case OMAP_ABE_PDM_UL_PORT:
-			abe->MultiFrame[0][0] =
-				ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL);
+			abe->MultiFrame[0][0] = ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL);
 			break;
 		case OMAP_ABE_DMIC_PORT:
 			abe->MultiFrame[2][5] = ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC);
@@ -1149,84 +1146,62 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		case OMAP_ABE_MM_UL2_PORT:
 			break;
 		case OMAP_ABE_VX_DL_PORT:
-			abe->MultiFrame[22][2] =
-				ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
+			abe->MultiFrame[22][2] =	ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
 			/* check for 8kHz/16kHz */
 			if (abe_port[id].format.f == 8000) {
 				abe->MultiFrame[21][2] =
-				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
 				abe->MultiFrame[23][2] =
-				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
-				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX]
-				  = ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48_FIR);
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
+				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
+					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48_FIR);
 				/*Voice_8k_DL_labelID */
 				smem1 = IO_VX_DL_ASRC_labelID;
 
-				/* ASRC set only for McBSP */
-				if ((prot->protocol_switch == SERIAL_PORT_PROT)) {
-					if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
-						OMAP_ABE_PORT_ACTIVITY_IDLE) &&
-					    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
-						OMAP_ABE_PORT_ACTIVITY_IDLE)) {
-						/* the 1st opened port is VX_DL_PORT
-						 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
-						 * referring to VX_DL flow_counter */
-						abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
-								ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8);
-							abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
-								ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8_SIB);
-						/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
-						abe_init_asrc_vx_ul(-250);
-						abe_init_asrc_vx_dl(250);
-					} else {
-						/* Do nothing, Scheduling Table has already been patched */
-					}
-				} else {
-					/* Enable only ASRC on VXDL port*/
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_DL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_DL flow_counter */
 					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
-						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8);
-					abe_init_asrc_vx_dl(0);
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8);
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8_SIB);
+					/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
+					abe_init_asrc_vx_ul(-250);
+					abe_init_asrc_vx_dl(250);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
 				}
-			} else if (abe_port[id].format.f == 16000) {			/* 16000Hz sampling*/
+			} else {
 				abe->MultiFrame[21][2] =
-				 ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
 				abe->MultiFrame[23][2] =
-				 ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
 				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_16_48);
 				/* Voice_16k_DL_labelID */
 				smem1 = IO_VX_DL_ASRC_labelID;
 
-				/* ASRC set only for McBSP */
-				if ((prot->protocol_switch == SERIAL_PORT_PROT)) {
-					if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
-						OMAP_ABE_PORT_ACTIVITY_IDLE) &&
-					    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
-						OMAP_ABE_PORT_ACTIVITY_IDLE)) {
-						/* the 1st opened port is VX_DL_PORT
-						 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
-						 * referring to VX_DL flow_counter */
-						abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
-							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_16);
-						abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
-							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_16_SIB);
-						/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
-						abe_init_asrc_vx_ul(-250);
-						abe_init_asrc_vx_dl(250);
-					} else {
-						/* Do nothing, Scheduling Table has already been patched */
-					}
-				} else {
-					/* Enable only ASRC on VXDL port*/
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_DL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_DL flow_counter */
 					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
 						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_16);
-					abe_init_asrc_vx_dl(0);
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_16_SIB);
+					/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
+					abe_init_asrc_vx_ul(-250);
+					abe_init_asrc_vx_dl(250);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
 				}
-			} else {
-				abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] = 0;		/* Disable asrc task */
-				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] = 0;
-				/* Buffer in SMEM at 48KHz*/
-				smem1 = VX_DL_labelID;
 			}
 			break;
 		case OMAP_ABE_VX_UL_PORT:
@@ -1234,75 +1209,60 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			/* check for 8kHz/16kHz */
 			if (abe_port[id].format.f == 8000) {
 				abe->MultiFrame[21][2] =
-				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
 				abe->MultiFrame[23][2] =
-				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
 				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_8);
 				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
 				   ABE_TASK_ID(C_ABE_FW_TASK_ECHO_REF_48_8); */
 				smem1 = Voice_8k_UL_labelID;
 
-                               /* ASRC set only for McBSP */
-                               if ((prot->protocol_switch == SERIAL_PORT_PROT)) {
-                                       if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
-                                               OMAP_ABE_PORT_ACTIVITY_IDLE) &&
-                                           (abe_port[OMAP_ABE_VX_UL_PORT].status ==
-                                               OMAP_ABE_PORT_ACTIVITY_IDLE)) {
-                                               /* the 1st opened port is VX_UL_PORT
-                                                * both VX_UL ASRC and VX_DL ASRC will add/remove sample
-                                                * referring to VX_UL flow_counter */
-                                               abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_UL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_UL flow_counter */
+					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
 							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_8_SIB);
-						abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
+					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
 							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8);
+					/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
+					abe_init_asrc_vx_ul(-250);
+					abe_init_asrc_vx_dl(250);
 				} else {
-                                       /* Enable only ASRC on VXUL port*/
-                                       abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
-                                               ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_8);
-                                       abe_init_asrc_vx_ul(0);
+					/* Do nothing, Scheduling Table has already been patched */
 				}
-			} else if (abe_port[id].format.f == 16000) {                    /* 16000Hz sampling*/
-			     abe->MultiFrame[21][2] =
-				ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
-			     abe->MultiFrame[23][2] =
-				ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
-			     abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
-				ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_16);
+			} else {
+				abe->MultiFrame[21][2] =
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
+				abe->MultiFrame[23][2] =
+					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
+				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
+					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_16);
 				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
 				   ABE_TASK_ID(C_ABE_FW_TASK_ECHO_REF_48_16); */
 				smem1 = Voice_16k_UL_labelID;
 
-				/* ASRC set only for McBSP */
-				if ((prot->protocol_switch == SERIAL_PORT_PROT)) {
-					if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
-						OMAP_ABE_PORT_ACTIVITY_IDLE) &&
-					    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
-						OMAP_ABE_PORT_ACTIVITY_IDLE)) {
-						/* the 1st opened port is VX_UL_PORT
-						 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
-						 * referring to VX_UL flow_counter */
-						abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
-							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_16_SIB);
-						abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
-							ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_16);
-						/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
-						abe_init_asrc_vx_ul(-250);
-						abe_init_asrc_vx_dl(250);
-					} else {
-						/* Do nothing, Scheduling Table has already been patched */
-					}
-				} else {
-					/* Enable only ASRC on VXDL port*/
+				if ((abe_port[OMAP_ABE_VX_DL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE) &&
+				    (abe_port[OMAP_ABE_VX_UL_PORT].status ==
+					OMAP_ABE_PORT_ACTIVITY_IDLE)) {
+					/* the 1st opened port is VX_UL_PORT
+					 * both VX_UL ASRC and VX_DL ASRC will add/remove sample
+					 * referring to VX_UL flow_counter */
+					abe->MultiFrame[TASK_ASRC_VX_DL_SLT][TASK_ASRC_VX_DL_IDX] =
+						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_DL_16_SIB);
 					abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] =
 						ABE_TASK_ID(C_ABE_FW_TASK_ASRC_VX_UL_16);
-					abe_init_asrc_vx_ul(0);
+					/* Init VX_UL ASRC & VX_DL ASRC and enable its adaptation */
+					abe_init_asrc_vx_ul(-250);
+					abe_init_asrc_vx_dl(250);
+				} else {
+					/* Do nothing, Scheduling Table has already been patched */
 				}
-			} else {
-				abe->MultiFrame[TASK_ASRC_VX_UL_SLT][TASK_ASRC_VX_UL_IDX] = 0;		/* Disable asrc task */
-				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] = 0;
-				/* Buffer in SMEM at 48KHz*/
-				smem1 = VX_UL_M_labelID;
 			}
 			break;
 		case OMAP_ABE_BT_VX_DL_PORT:
@@ -1317,11 +1277,11 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			if (abe_port[id].format.f == 8000) {
 				if (dOppMode32 == DOPPMODE32_OPP100) {
 					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_OPP100);
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_OPP100_FW_COMPAT);
 					smem1 = BT_DL_8k_opp100_labelID;
 				} else {
 					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR);
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_FW_COMPAT);
 					smem1 = BT_DL_8k_labelID;
 				}
 #if 0
@@ -1340,7 +1300,7 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					/* Do nothing, Scheduling Table has already been patched */
 				}
 #endif
-			} else if (abe_port[id].format.f == 16000) {
+			} else {
 				if (dOppMode32 == DOPPMODE32_OPP100) {
 					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
 						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_16_OPP100);
@@ -1366,9 +1326,6 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					/* Do nothing, Scheduling Table has already been patched */
 				}
 #endif
-			} else {
-				/* Buffer in SMEM at 48KHz*/
-				smem1 = DL1_GAIN_out_labelID;
 			}
 			break;
 		case OMAP_ABE_BT_VX_UL_PORT:
@@ -1406,7 +1363,7 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					/* Do nothing, Scheduling Table has already been patched */
 				}
 #endif
-			} else if (abe_port[id].format.f == 16000) {
+			} else {
 				abe->MultiFrame[TASK_BT_UL_8_48_SLT][TASK_BT_UL_8_48_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_BT_UL_16_48);
 				if (dOppMode32 == DOPPMODE32_OPP100)
@@ -1431,19 +1388,13 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					/* Do nothing, Scheduling Table has already been patched */
 				}
 #endif
-			} else {
-				abe->MultiFrame[TASK_ASRC_BT_UL_SLT][TASK_ASRC_BT_UL_IDX] = 0;		/* Disable asrc task */
-				abe->MultiFrame[TASK_BT_UL_8_48_SLT][TASK_BT_UL_8_48_IDX] = 0;
-				/* Buffer in SMEM at 48KHz */
-				smem1 = BT_UL_labelID;
 			}
 			break;
 		case OMAP_ABE_MM_DL_PORT:
 			/* check for CBPr / serial_port / Ping-pong access */
 			if (abe_port[id].format.f == 44100) {
 				smem1 = MM_DL_44P1_WPTR_labelID;
-				abe->MultiFrame[18][1] =
-					ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL);
+				abe->MultiFrame[18][1] = ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL);
 			} else {
 				abe->MultiFrame[18][1] = 0;
 				smem1 = smem_mm_dl;
@@ -1517,7 +1468,7 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		omap_abe_mem_write(abe, OMAP_ABE_DMEM,
 				   OMAP_ABE_D_MULTIFRAME_ADDR, (u32 *) abe->MultiFrame,
 				   sizeof(abe->MultiFrame));
-     }
+
 }
 
 /**
@@ -1656,8 +1607,6 @@ void abe_format_switch(abe_data_format_t *f, u32 *iter, u32 *mulfac)
 		break;
 	}
 	*iter = (n_freq * (*mulfac));
-	if (f->samp_format == MONO_16_16)
-		*iter /= 2;
 }
 /**
  * abe_dma_port_iteration
@@ -1719,9 +1668,6 @@ u32 abe_dma_port_copy_subroutine_id(u32 port_id)
 		case STEREO_16_16:
 			sub_id = D2S_STEREO_16_16_CFPID;
 			break;
-		case MONO_16_16:
-			sub_id = D2S_MONO_16_16_CFPID;
-			break;
 		case STEREO_MSB:
 			sub_id = D2S_STEREO_MSB_CFPID;
 			break;
@@ -1748,28 +1694,12 @@ u32 abe_dma_port_copy_subroutine_id(u32 port_id)
 		case STEREO_16_16:
 			sub_id = S2D_STEREO_16_16_CFPID;
 			break;
-		case MONO_16_16:
-			sub_id = S2D_MONO_16_16_CFPID;
-			break;
 		case STEREO_MSB:
 			sub_id = S2D_STEREO_MSB_CFPID;
 			break;
 		case SIX_MSB:
 			if (port_id == OMAP_ABE_PDM_DL_PORT) {
-				/* McPDM default output mode selection
-				 * 1 - Separate headset (DL1) and handsfree (DL2) paths
-				 *     => Need OPP100 for Handsfree output
-				 * 2 - DL1 on handsfree path and mute headset
-				 * 3 - DL1 on both headset and handsfree
-				 */
-				if (abe->mcpdm_path == 1)
-					sub_id = COPY_MCPDM_DL_CFPID;
-				else if (abe->mcpdm_path == 2)
-					sub_id = COPY_MCPDM_DL_HF_PDL1_CFPID;
-				else if (abe->mcpdm_path == 3)
-					sub_id = COPY_MCPDM_DL_HF_PDL2_CFPID;
-				else
-					sub_id = COPY_MCPDM_DL_CFPID;
+				sub_id = COPY_MCPDM_DL_CFPID;
 				break;
 			}
 			if (port_id == OMAP_ABE_MM_UL_PORT) {
