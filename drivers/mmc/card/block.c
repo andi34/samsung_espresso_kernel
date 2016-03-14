@@ -409,16 +409,19 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	 * issuing the command.
 	 */
 	if (idata->ic.postsleep_min_us)
-		usleep_range(idata->ic.postsleep_min_us, idata->ic.postsleep_max_us);
+		usleep_range(idata->ic.postsleep_min_us,
+			idata->ic.postsleep_max_us);
 
-	if (copy_to_user(&(ic_ptr->response), cmd.resp, sizeof(cmd.resp))) {
+	if (copy_to_user(&(ic_ptr->response),
+			cmd.resp, sizeof(cmd.resp))) {
 		err = -EFAULT;
 		goto cmd_rel_host;
 	}
 
 	if (!idata->ic.write_flag) {
-		if (copy_to_user((void __user *)(unsigned long) idata->ic.data_ptr,
-						idata->buf, idata->buf_bytes)) {
+		if (copy_to_user(
+				(void __user *)(unsigned long) idata->ic.data_ptr,
+				idata->buf, idata->buf_bytes)) {
 			err = -EFAULT;
 			goto cmd_rel_host;
 		}
