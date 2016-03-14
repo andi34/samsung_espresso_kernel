@@ -2041,7 +2041,6 @@ static void stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 {
 	int			i;
 	struct musb_hw_ep	*hw_ep;
-	pm_runtime_get_sync(musb->controller);
 
 	/* don't disconnect if it's not connected */
 	if (musb->g.speed == USB_SPEED_UNKNOWN)
@@ -2078,7 +2077,6 @@ static void stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 		driver->disconnect(&musb->g);
 		spin_lock(&musb->lock);
 	}
-	pm_runtime_put(musb->controller);
 }
 
 void musb_all_ep_flush(struct musb *musb)
