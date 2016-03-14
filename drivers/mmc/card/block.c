@@ -1302,6 +1302,11 @@ static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 	}
 
 	while (reqs < max_packed_rw - 1) {
+		/*We should stop no-more packing its nopacked_period*/
+		if ((card->host->caps2 & MMC_CAP2_ADAPT_PACKED)
+			 &&  mmc_is_nopacked_period(mq))
+			break;
+
 		spin_lock_irq(q->queue_lock);
 		next = blk_fetch_request(q);
 		spin_unlock_irq(q->queue_lock);
