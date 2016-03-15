@@ -210,5 +210,4 @@
 #define C_ABE_FW_TASK_BT_DL_48_8_FIR_FW_COMPAT              \
 		C_ABE_FW_TASK_BT_DL_48_8
 #endif
-
 #endif /* _ABE_TASKID_H_ */

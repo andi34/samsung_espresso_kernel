@@ -496,7 +496,6 @@ static int hsi_init_handshake(struct mipi_link_device *mipi_ld, int mode)
 		if (timer_pending(&mipi_ld->hsi_acwake_down_timer))
 			del_timer(&mipi_ld->hsi_acwake_down_timer);
 
-
 		if (!mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL].opened)
 			if_hsi_open_channel(
 				&mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL]);
@@ -527,8 +526,6 @@ static int hsi_init_handshake(struct mipi_link_device *mipi_ld, int mode)
 					HSI_IOCTL_SET_RX, &rx_config);
 		mipi_debug("Set TX/RX MIPI-HSI\n");
 
-		
-
 		if (!wake_lock_active(&mipi_ld->wlock)) {
 			wake_lock(&mipi_ld->wlock);
 			mipi_debug("wake_lock\n");
@@ -545,18 +542,16 @@ static int hsi_init_handshake(struct mipi_link_device *mipi_ld, int mode)
 	case HSI_INIT_MODE_FLASHLESS_BOOT_EBL:
 		mipi_ld->ld.com_state = COM_BOOT_EBL;
 
-		
 		if (!mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL].opened)
 			if_hsi_open_channel(
 				&mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL]);
 
 		hsi_ioctl(mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL].dev,
-			HSI_IOCTL_SET_WAKE_RX_4WIRES_MODE, NULL);
+				HSI_IOCTL_SET_WAKE_RX_4WIRES_MODE, NULL);
 		mipi_debug("Set 4 WIRE MODE\n");
 
 		hsi_ioctl(mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL].dev,
 					HSI_IOCTL_GET_TX, &tx_config);
-
 		tx_config.mode = 2;
 		tx_config.divisor = 0; /* Speed : 96MHz */
 		tx_config.channels = 1;
@@ -572,7 +567,6 @@ static int hsi_init_handshake(struct mipi_link_device *mipi_ld, int mode)
 					HSI_IOCTL_SET_RX, &rx_config);
 		mipi_debug("Set TX/RX MIPI-HSI\n");
 
-		
 		if (!wake_lock_active(&mipi_ld->wlock)) {
 			wake_lock(&mipi_ld->wlock);
 			mipi_debug("wake_lock\n");
@@ -591,8 +585,6 @@ static int hsi_init_handshake(struct mipi_link_device *mipi_ld, int mode)
 
 	case HSI_INIT_MODE_CP_RAMDUMP:
 		mipi_ld->ld.com_state = COM_CRASH;
-
-		
 
 		if (!mipi_ld->hsi_channles[HSI_CP_RAMDUMP_CHANNEL].opened)
 			if_hsi_open_channel(
@@ -623,7 +615,6 @@ static int hsi_init_handshake(struct mipi_link_device *mipi_ld, int mode)
 		hsi_ioctl(mipi_ld->hsi_channles[HSI_CP_RAMDUMP_CHANNEL].dev,
 					HSI_IOCTL_SET_RX, &rx_config);
 		mipi_debug("Set TX/RX MIPI-HSI\n");
-
 
 		if (!wake_lock_active(&mipi_ld->wlock)) {
 			wake_lock(&mipi_ld->wlock);

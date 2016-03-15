@@ -2425,12 +2425,15 @@ int omapfb_enable_vsync(struct omapfb2_device *fbdev, enum omap_channel ch,
 
 	if (enable)
 		r = omap_dispc_register_isr(omapfb_vsync_isr, fbdev,
-			masks[ch]);
+				masks[ch]);
 	else
 		r = omap_dispc_unregister_isr(omapfb_vsync_isr, fbdev,
-			masks[ch]);
+				masks[ch]);
 	return r;
+
+
 }
+
 
 static int omapfb_probe(struct platform_device *pdev)
 {
