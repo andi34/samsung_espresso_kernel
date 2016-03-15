@@ -456,6 +456,8 @@ static void SynaProgramFirmware(void)
 	SynaFlashFirmwareWrite();
 }
 
+/* commenting this func as we r not using it currently */
+#if 0
 /* eraseConfigBlock erases the config block */
 static void eraseConfigBlock(void)
 {
@@ -473,6 +475,7 @@ static void eraseConfigBlock(void)
 
 	SynaWaitATTN();
 }
+#endif
 
 bool synaptics_fw_update(struct i2c_client *ts_client, const u8 *fw_data,
 							const int gpio)

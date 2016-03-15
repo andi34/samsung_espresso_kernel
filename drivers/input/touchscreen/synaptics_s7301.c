@@ -121,7 +121,7 @@ struct ts_data {
 	struct input_dev		*input_dev;
 	struct early_suspend		early_suspend;
 	struct sec_ts_platform_data	*platform_data;
-	struct synaptics_fw_info	*fw_info;
+	struct synaptics_fw_info	*fw_info, fw_info_ic;
 #ifdef CONFIG_SEC_TSP_FACTORY_TEST
 	struct factory_data		*factory_data;
 	struct node_data		*node_data;
@@ -237,6 +237,7 @@ static inline int __init syna_get_base_address(struct ts_data *ts)
 
 #define WIDE_THRESHOLD			28
 
+#ifdef CONFIG_TOUCHSCREEN_SUPPORT_SYNA_SURFACE
 static void syna_set_surface_threshold(struct ts_data *ts)
 {
 	u8 surface_wide_threshold = WIDE_THRESHOLD;
@@ -248,6 +249,7 @@ static void syna_set_surface_threshold(struct ts_data *ts)
 
 	return;
 }
+#endif
 
 static void syna_set_ta_mode(int *ta_state)
 {
@@ -330,6 +332,7 @@ static bool fw_updater(struct ts_data *ts, char *mode)
 {
 	u8 buf[5] = {0, };
 	bool ret = false;
+	bool updated = true;
 	const struct firmware *fw;
 
 	tsp_debug("Enter the fw_updater.");
@@ -360,7 +363,8 @@ static bool fw_updater(struct ts_data *ts, char *mode)
 	ts->fw_info->version[3] = fw->data[0xb103];
 	ts->fw_info->version[4] = 0;
 #else
-	ts->fw_info->version = (int) fw->data[0xb103];
+	ts->fw_info->hw_version = (int)fw->data[0xb102];
+	ts->fw_info->version = (int)fw->data[0xb103];
 #endif
 
 	if (!strcmp("force", mode)) {
@@ -416,31 +420,58 @@ static bool fw_updater(struct ts_data *ts, char *mode)
 			goto out;
 		}
 #ifdef CONFIG_TOUCHSCREEN_OLD_FW_STD
-		pr_info("tsp: binary fw. ver: 0x%s, IC fw. ver: 0x%s\n",
-						(char *)ts->fw_info->version,
-						(char *)buf);
+		strncpy(ts->fw_info_ic.version, buf, 4);
 
-		if (strncmp(ts->fw_info->version, buf, 4) > 0) {
+		pr_info("tsp: binary fw. ver: 0x%s, IC fw. ver: 0x%s\n",
+							ts->fw_info->version,
+							ts->fw_info_ic.version);
+		if (strncmp(ts->fw_info->version, ts->fw_info_ic.version, 4)
+									> 0) {
 			pr_info("tsp: fw_updater: FW upgrade enter.\n");
 			ret = synaptics_fw_update(ts->client, fw->data,
 						ts->platform_data->gpio_irq);
 		} else {
 			pr_info("tsp: fw_updater: No need FW update.\n");
 			ret = true;
+			updated = false;
 		}
 #else
-		pr_info("tsp: binary fw. ver: 0x%.2x, IC fw. ver: 0x%.2x\n",
-						ts->fw_info->version,
-						buf[3]);
+		ts->fw_info_ic.hw_version = (int)buf[2];
+		ts->fw_info_ic.version = (int)buf[3];
 
-		if (ts->fw_info->version > (int) buf[3]) {
+		pr_info("tsp: binary fw. ver: 0x%.2x, IC fw. ver: 0x%.2x\n",
+							ts->fw_info->version,
+							ts->fw_info_ic.version);
+		if (ts->fw_info->version > ts->fw_info_ic.version) {
 			pr_info("tsp: fw_updater: FW upgrade enter.\n");
 			ret = synaptics_fw_update(ts->client, fw->data,
 						ts->platform_data->gpio_irq);
 		} else {
 			pr_info("tsp: fw_updater: No need FW update.\n");
 			ret = true;
+			updated = false;
 		}
+#endif
+	}
+
+	if (updated) {
+		if (ts_read_reg_data(ts->client, REG_FW_DATA, buf, 4) < 0) {
+			pr_err("tsp: fw. ver. read failed.");
+			goto out;
+		}
+#ifdef CONFIG_TOUCHSCREEN_OLD_FW_STD
+		strncpy(ts->fw_info_ic.version, buf, 4);
+
+		pr_info("tsp: binary fw. ver: 0x%s, IC fw. ver: 0x%s\n",
+							ts->fw_info->version,
+							ts->fw_info_ic.version);
+#else
+		ts->fw_info_ic.hw_version = (int)buf[2];
+		ts->fw_info_ic.version = (int)buf[3];
+
+		pr_info("tsp: binary fw. ver: 0x%.2x, IC fw. ver: 0x%.2x\n",
+							ts->fw_info->version,
+							ts->fw_info_ic.version);
 #endif
 	}
 out:
@@ -532,8 +563,7 @@ static void get_fw_ver_bin(void *device_data)
 #ifdef CONFIG_TOUCHSCREEN_OLD_FW_STD
 	sprintf(data->cmd_buff, "%s", ts_data->fw_info->version);
 #else
-	sprintf(data->cmd_buff, "%s%.2x%.4x", ts_data->fw_info->vendor,
-						ts_data->fw_info->hw_id,
+	sprintf(data->cmd_buff, "SY%.2x%.4x", ts_data->fw_info->hw_id,
 						ts_data->fw_info->version);
 #endif
 	set_cmd_result(data, data->cmd_buff, strlen(data->cmd_buff));
@@ -546,18 +576,15 @@ static void get_fw_ver_ic(void *device_data)
 {
 	struct ts_data *ts_data = (struct ts_data *)device_data;
 	struct factory_data *data = ts_data->factory_data;
-	u8 buf[5] = {0, };
 
 	data->cmd_state = RUNNING;
 
-	ts_read_reg_data(ts_data->client, REG_FW_DATA, buf, 4);
-
 	set_default_result(data);
 #ifdef CONFIG_TOUCHSCREEN_OLD_FW_STD
-	sprintf(data->cmd_buff, "%s", buf);
+	sprintf(data->cmd_buff, "%s", ts_data->fw_info_ic.version);
 #else
-	sprintf(data->cmd_buff, "%c%c%.2x%.4x", buf[0], buf[1],
-						(int) buf[2], (int) buf[3]);
+	sprintf(data->cmd_buff, "SY%.2x%.4x", ts_data->fw_info_ic.hw_id,
+						ts_data->fw_info_ic.version);
 #endif
 	set_cmd_result(data, data->cmd_buff, strlen(data->cmd_buff));
 

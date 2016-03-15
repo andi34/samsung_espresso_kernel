@@ -25,7 +25,6 @@ struct synaptics_fw_info {
 };
 #else
 struct synaptics_fw_info {
-	const char vendor[2];
 	int version;
 	int hw_id;
 	const char release_date[5];
