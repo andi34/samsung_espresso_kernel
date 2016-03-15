@@ -171,7 +171,7 @@ static void set_ta_mode(int *ta_state)
 	u8 command;
 
 	if (ts) {
-		disable_irq(ts->client->irq);
+		disable_irq_nosync(ts->client->irq);
 		switch (*ta_state) {
 		case CABLE_TA:
 		command = 0x01;
