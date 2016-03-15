@@ -310,17 +310,19 @@ static int max77693_get_health_state(struct sec_charger_info *charger)
 	int state;
 	int vbus_state;
 	int chg_state;
-	u8 reg_data;
+	u8 bat_dtls, chg_dtls, reg_data;
 
 	max77693_read_reg(charger->client,
 		MAX77693_CHG_REG_CHG_DTLS_01, &reg_data);
-	reg_data = ((reg_data & MAX77693_BAT_DTLS) >> MAX77693_BAT_DTLS_SHIFT);
+	chg_dtls = reg_data & 0xF;
+	bat_dtls = ((reg_data & MAX77693_BAT_DTLS) >> MAX77693_BAT_DTLS_SHIFT);
 	pr_info("%s: BAT_DTLS : %d", __func__, reg_data);
-	switch (reg_data) {
+	switch (bat_dtls) {
 	case 0x00:
 		pr_debug("%s: No battery and the charger is suspended\n",
 			__func__);
 		state = POWER_SUPPLY_HEALTH_UNKNOWN;
+		break;
 	case 0x01:
 		state = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
 		break;
@@ -356,9 +358,12 @@ static int max77693_get_health_state(struct sec_charger_info *charger)
 		if (vbus_state == 0x02) { /* CHGIN_OVLO */
 			pr_info("%s: vbus ovp\n", __func__);
 			state = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-		} else if (reg_data == 0x04 &&
+		} else if (bat_dtls == 0x04 &&
 				chg_state == POWER_SUPPLY_STATUS_FULL) {
 			pr_info("%s: battery terminal error\n", __func__);
+			state = POWER_SUPPLY_HEALTH_UNDERVOLTAGE;
+		} else if (vbus_state == 0x0 && chg_dtls != 0x8) {
+			pr_info("%s: vbus uvp\n", __func__);
 			state = POWER_SUPPLY_HEALTH_UNDERVOLTAGE;
 		}
 	}
@@ -372,7 +377,7 @@ static int sec_chg_get_property(struct power_supply *psy,
 {
 	struct sec_charger_info *charger =
 		container_of(psy, struct sec_charger_info, psy_chg);
-	u8 vbus_state, reg_data, dtls_01;
+	u8 vbus_state, reg_data, dtls_01, dtls_00;
 	u8 vbus, adc, chgtyp;
 	int count = 0;
 
@@ -380,7 +385,11 @@ static int sec_chg_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		max77693_muic_charger_detect(&vbus, &adc, &chgtyp);
 		max77693_read_reg(charger->client,
+				MAX77693_CHG_REG_CHG_DTLS_00, &dtls_00);
+		pr_info("%s: CHG_DTLS_00 : 0x%x\n", __func__, dtls_00);
+		max77693_read_reg(charger->client,
 				MAX77693_CHG_REG_CHG_DTLS_01, &dtls_01);
+
 		if (vbus && !(dtls_01 & 0x8)) {
 			vbus_state = max77693_get_vbus_state(charger);
 			while (vbus_state <= 0x1 && count < 10) {
@@ -410,7 +419,7 @@ static int sec_chg_get_property(struct power_supply *psy,
 				MAX77693_CHG_REG_CHG_CNFG_09, &reg_data);
 		vbus_state = max77693_get_vbus_state(charger);
 
-		val->intval = dtls_01 & 0x0f;
+		val->intval = (dtls_00 & 0x60) | (dtls_01 & 0xf);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = max77693_get_charger_state(charger);
@@ -474,9 +483,7 @@ static int sec_chg_set_property(struct power_supply *psy,
 				max77693_set_termination_current(charger,
 					charger->pdata->charging_current[
 					val->intval].full_check_current_1st);
-			}
 
-			if (charger->is_charging) {
 				/* if not set, input current default 500mA */
 				max77693_set_input_current(charger, 100);
 				msleep(20);
@@ -579,7 +586,8 @@ static void max77693_charger_initialize(struct sec_charger_info *charger)
 	max77693_read_reg(charger->client,
 		MAX77693_CHG_REG_CHG_CNFG_11, &reg_data);
 
-	reg_data = (reg_data & 0x7f) | 0x50;
+	/* VBYPSET register set 3V(0x0 : default) */
+	reg_data = 0x0;
 	max77693_write_reg(charger->client,
 		MAX77693_CHG_REG_CHG_CNFG_11, reg_data);
 
