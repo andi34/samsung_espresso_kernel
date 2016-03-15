@@ -59,7 +59,7 @@ static inline bool migrate_async_suitable(int migratetype)
 static unsigned long isolate_freepages_block(unsigned long blockpfn,
 				unsigned long end_pfn,
 				struct list_head *freelist,
-				bool strict)
+				bool strict, bool for_cma)
 {
 	int nr_scanned = 0, total_isolated = 0;
 	struct page *cursor;
@@ -85,7 +85,7 @@ static unsigned long isolate_freepages_block(unsigned long blockpfn,
 		}
 
 		/* Found a free page, break it into order-0 pages */
-		isolated = split_free_page(page);
+		isolated = split_free_page(page, for_cma);
 		if (!isolated && strict)
 			return 0;
 		total_isolated += isolated;
@@ -119,7 +119,8 @@ static unsigned long isolate_freepages_block(unsigned long blockpfn,
  * a free page).
  */
 unsigned long
-isolate_freepages_range(unsigned long start_pfn, unsigned long end_pfn)
+isolate_freepages_range(unsigned long start_pfn, unsigned long end_pfn,
+				 bool for_cma)
 {
 	unsigned long isolated, pfn, block_end_pfn, flags;
 	struct zone *zone = NULL;
@@ -141,7 +142,7 @@ isolate_freepages_range(unsigned long start_pfn, unsigned long end_pfn)
 
 		spin_lock_irqsave(&zone->lock, flags);
 		isolated = isolate_freepages_block(pfn, block_end_pfn,
-						   &freelist, true);
+						   &freelist, true, for_cma);
 		spin_unlock_irqrestore(&zone->lock, flags);
 
 		/*
@@ -176,17 +177,13 @@ isolate_freepages_range(unsigned long start_pfn, unsigned long end_pfn)
 static void acct_isolated(struct zone *zone, struct compact_control *cc)
 {
 	struct page *page;
-	unsigned int count[NR_LRU_LISTS] = { 0, };
+	unsigned int count[2] = { 0, };
 
-	list_for_each_entry(page, &cc->migratepages, lru) {
-		int lru = page_lru_base_type(page);
-		count[lru]++;
-	}
+	list_for_each_entry(page, &cc->migratepages, lru)
+		count[!!page_is_file_cache(page)]++;
 
-	cc->nr_anon = count[LRU_ACTIVE_ANON] + count[LRU_INACTIVE_ANON];
-	cc->nr_file = count[LRU_ACTIVE_FILE] + count[LRU_INACTIVE_FILE];
-	__mod_zone_page_state(zone, NR_ISOLATED_ANON, cc->nr_anon);
-	__mod_zone_page_state(zone, NR_ISOLATED_FILE, cc->nr_file);
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, count[0]);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, count[1]);
 }
 
 /* Similar to reclaim, but different enough that they don't share logic */
@@ -269,34 +266,12 @@ isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
 		} else if (!locked)
 			spin_lock_irq(&zone->lru_lock);
 
-		/*
-		 * migrate_pfn does not necessarily start aligned to a
-		 * pageblock. Ensure that pfn_valid is called when moving
-		 * into a new MAX_ORDER_NR_PAGES range in case of large
-		 * memory holes within the zone
-		 */
-		if ((low_pfn & (MAX_ORDER_NR_PAGES - 1)) == 0) {
-			if (!pfn_valid(low_pfn)) {
-				low_pfn += MAX_ORDER_NR_PAGES - 1;
-				continue;
-			}
-		}
-
 		if (!pfn_valid_within(low_pfn))
 			continue;
 		nr_scanned++;
 
-		/*
-		 * Get the page and ensure the page is within the same zone.
-		 * See the comment in isolate_freepages about overlapping
-		 * nodes. It is deliberate that the new zone lock is not taken
-		 * as memory compaction should not move pages between nodes.
-		 */
+		/* Get the page and skip if free */
 		page = pfn_to_page(low_pfn);
-		if (page_zone(page) != zone)
-			continue;
-
-		/* Skip if free */
 		if (PageBuddy(page))
 			continue;
 
@@ -340,8 +315,10 @@ isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
 		nr_isolated++;
 
 		/* Avoid isolating too much */
-		if (cc->nr_migratepages == COMPACT_CLUSTER_MAX)
+		if (cc->nr_migratepages == COMPACT_CLUSTER_MAX) {
+			++low_pfn;
 			break;
+		}
 	}
 
 	acct_isolated(zone, cc);
@@ -446,7 +423,7 @@ static void isolate_freepages(struct zone *zone,
 		if (suitable_migration_target(page)) {
 			end_pfn = min(pfn + pageblock_nr_pages, zone_end_pfn);
 			isolated = isolate_freepages_block(pfn, end_pfn,
-							   freelist, false);
+						   freelist, false, false);
 			nr_freepages += isolated;
 		}
 		spin_unlock_irqrestore(&zone->lock, flags);
@@ -681,7 +658,7 @@ static int compact_zone(struct zone *zone, struct compact_control *cc)
 		nr_migrate = cc->nr_migratepages;
 		err = migrate_pages(&cc->migratepages, compaction_alloc,
 				(unsigned long)cc, false,
-				cc->sync);
+				cc->sync, 0);
 		update_nr_listpages(cc);
 		nr_remaining = cc->nr_migratepages;
 
@@ -696,6 +673,10 @@ static int compact_zone(struct zone *zone, struct compact_control *cc)
 		if (err) {
 			putback_lru_pages(&cc->migratepages);
 			cc->nr_migratepages = 0;
+			if (err == -ENOMEM) {
+				ret = COMPACT_PARTIAL;
+				goto out;
+			}
 		}
 
 	}
@@ -708,7 +689,7 @@ out:
 	return ret;
 }
 
-unsigned long compact_zone_order(struct zone *zone,
+static inline unsigned long __compact_zone_order(struct zone *zone,
 				 int order, gfp_t gfp_mask,
 				 bool sync)
 {
@@ -725,6 +706,14 @@ unsigned long compact_zone_order(struct zone *zone,
 
 	return compact_zone(zone, &cc);
 }
+
+#ifdef CONFIG_COMPACTION_RETRY
+unsigned long compact_zone_order(struct zone *zone, int order,
+					gfp_t gfp_mask, bool sync)
+{
+	return __compact_zone_order(zone, order, gfp_mask, sync);
+}
+#endif
 
 int sysctl_extfrag_threshold = 500;
 
@@ -764,7 +753,7 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 								nodemask) {
 		int status;
 
-		status = compact_zone_order(zone, order, gfp_mask, sync);
+		status = __compact_zone_order(zone, order, gfp_mask, sync);
 		rc = max(status, rc);
 
 		/* If a normal allocation would succeed, stop compacting */

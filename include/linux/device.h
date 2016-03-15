@@ -588,6 +588,10 @@ struct device {
 #ifdef CONFIG_CMA
 	struct cma *cma_area;		/* contiguous memory area for dma
 					   allocations */
+#ifdef CONFIG_ION_CMA
+	bool preferred_align;
+	unsigned int cma_align;
+#endif
 #endif
 	/* arch specific additions */
 	struct dev_archdata	archdata;

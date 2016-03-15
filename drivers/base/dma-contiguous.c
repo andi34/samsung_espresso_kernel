@@ -213,6 +213,9 @@ static int __init cma_init_reserved_areas(void)
 				      r->size >> PAGE_SHIFT);
 		if (!IS_ERR(cma))
 			dev_set_cma_area(r->dev, cma);
+		else
+			printk(KERN_ERR "%s() cma_create_area error for %ud\n",
+					__func__, i);
 	}
 	return 0;
 }
@@ -250,7 +253,7 @@ int __init dma_declare_contiguous(struct device *dev, unsigned long size,
 		return -EINVAL;
 
 	/* Sanitise input arguments */
-	alignment = PAGE_SIZE << max(MAX_ORDER, pageblock_order);
+	alignment = PAGE_SIZE << max(MAX_ORDER-1, pageblock_order);
 	base = ALIGN(base, alignment);
 	size = ALIGN(size, alignment);
 	limit &= ~(alignment - 1);
@@ -299,18 +302,7 @@ err:
 	return base;
 }
 
-/**
- * dma_alloc_from_contiguous() - allocate pages from contiguous area
- * @dev:   Pointer to device for which the allocation is performed.
- * @count: Requested number of pages.
- * @align: Requested alignment of pages (in PAGE_SIZE order).
- *
- * This function allocates memory buffer for specified device. It uses
- * device specific contiguous memory area if available or the default
- * global one. Requires architecture specific get_dev_cma_area() helper
- * function.
- */
-struct page *dma_alloc_from_contiguous(struct device *dev, int count,
+static struct page *__dma_alloc_from_contiguous(struct device *dev, int count,
 				       unsigned int align)
 {
 	unsigned long mask, pfn, pageno, start = 0;
@@ -320,6 +312,12 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	if (!cma || !cma->count)
 		return NULL;
 
+#ifdef CONFIG_ION_CMA
+	/* To avoid fragmentation */
+	if (dev && dev->preferred_align)
+		align = dev->cma_align;
+	else
+#endif
 	if (align > CONFIG_CMA_ALIGNMENT)
 		align = CONFIG_CMA_ALIGNMENT;
 
@@ -337,6 +335,9 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		pageno = bitmap_find_next_zero_area(cma->bitmap, cma->count,
 						    start, count, mask);
 		if (pageno >= cma->count) {
+			printk(KERN_ERR "%s : cma->count is %lu, "
+					"pageno is %lu\n", __func__,
+					cma->count, pageno);
 			ret = -ENOMEM;
 			goto error;
 		}
@@ -346,13 +347,18 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
 			break;
-		} else if (ret != -EBUSY) {
+		} else if (ret != -EBUSY && ret != -EAGAIN) {
 			goto error;
 		}
 		pr_debug("%s(): memory range at %p is busy, retrying\n",
 			 __func__, pfn_to_page(pfn));
 		/* try again with a bit different memory target */
-		start = pageno + mask + 1;
+
+		/* FIXME: woojong.yoo@samsung.com
+		 * When the full size of cma region is requested
+		 * it fails to allocate if we change the start address.
+		 */
+/*		start = pageno + mask + 1;*/
 	}
 
 	mutex_unlock(&cma_mutex);
@@ -360,8 +366,113 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	pr_debug("%s(): returned %p\n", __func__, pfn_to_page(pfn));
 	return pfn_to_page(pfn);
 error:
+	pr_err("%s(): returned error (%d)\n", __func__, ret);
 	mutex_unlock(&cma_mutex);
 	return NULL;
+}
+
+struct dma_prepare_alloc_ctx {
+	struct device *dev;
+	int count;
+	unsigned int align;
+	struct work_struct work;
+	struct list_head node;
+	struct page *result;
+};
+
+/* list of asynchronous allocations */
+static LIST_HEAD(dma_prepare_alloc_head);
+/* protects dma_prepare_alloc_head */
+static DEFINE_SPINLOCK(dma_prepare_alloc_lock);
+
+static void do_dma_prepare_alloc(struct work_struct *work)
+{
+	struct dma_prepare_alloc_ctx *ctx = container_of(
+			work, struct dma_prepare_alloc_ctx, work);
+
+	ctx->result = __dma_alloc_from_contiguous(ctx->dev, ctx->count,
+			ctx->align);
+	printk(KERN_INFO "%s[%d]: alloc %d pages for dev %s %s\n",
+		__func__, __LINE__, ctx->count, dev_name(ctx->dev),
+		ctx->result ? "succeeded" : "failed");
+}
+
+/**
+ * dma_prepare_alloc_from_contiguous() - prepare allocation of pages in
+ * an asynchronous thread
+ * @dev:   Pointer to device for which the allocation is performed.
+ * @count: Requested number of pages.
+ * @align: Requested alignment of pages (in PAGE_SIZE order).
+ *
+ * This function prepares an allocation by scheduling it in a separate work
+ * thread. Once dma_alloc_from_contiguous is called then it searches
+ * the dma_prepare_alloc_head list in the first place.
+ */
+int dma_prepare_alloc_from_contiguous(struct device *dev, int count,
+				unsigned int align)
+{
+	struct dma_prepare_alloc_ctx *ctx;
+	unsigned long flags;
+
+	ctx = kzalloc(sizeof *ctx, GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+
+	ctx->dev = dev;
+	ctx->count = count;
+	ctx->align = align;
+	INIT_WORK(&ctx->work, do_dma_prepare_alloc);
+
+	spin_lock_irqsave(&dma_prepare_alloc_lock, flags);
+	list_add_tail(&ctx->node, &dma_prepare_alloc_head);
+	spin_unlock_irqrestore(&dma_prepare_alloc_lock, flags);
+
+	queue_work(system_long_wq, &ctx->work);
+	return 0;
+}
+
+/**
+ * dma_alloc_from_contiguous() - allocate pages from contiguous area
+ * @dev:   Pointer to device for which the allocation is performed.
+ * @count: Requested number of pages.
+ * @align: Requested alignment of pages (in PAGE_SIZE order).
+ *
+ * This function allocates memory buffer for specified device. It uses
+ * device specific contiguous memory area if available or the default
+ * global one. Requires architecture specific get_dev_cma_area() helper
+ * function.
+ */
+struct page *dma_alloc_from_contiguous(struct device *dev, int count,
+				unsigned int align)
+{
+	unsigned long flags;
+	struct list_head *i, *n;
+	struct dma_prepare_alloc_ctx *ctx = NULL;
+	struct page *result = NULL;
+
+	/* search for a cached allocation */
+	spin_lock_irqsave(&dma_prepare_alloc_lock, flags);
+	list_for_each_safe(i, n, &dma_prepare_alloc_head) {
+		ctx = list_entry(i, struct dma_prepare_alloc_ctx, node);
+		if (ctx->dev == dev && ctx->count == count &&
+		    ctx->align == align) {
+			list_del(i);
+			break;
+		}
+		ctx = NULL;
+	}
+	spin_unlock_irqrestore(&dma_prepare_alloc_lock, flags);
+
+	/* If a cached allocation is found then use its result */
+	if (ctx) {
+		flush_work(&ctx->work);
+		result = ctx->result;
+		kfree(ctx);
+	}
+	/* fallback to sync allocation */
+	if (!result)
+		result = __dma_alloc_from_contiguous(dev, count, align);
+	return result;
 }
 
 /**
@@ -387,8 +498,10 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 
 	pfn = page_to_pfn(pages);
 
-	if (pfn < cma->base_pfn || pfn >= cma->base_pfn + cma->count)
+	if (pfn < cma->base_pfn || pfn >= cma->base_pfn + cma->count) {
+		pr_info("%s : return false\n", __func__);
 		return false;
+	}
 
 	VM_BUG_ON(pfn + count > cma->base_pfn + cma->count);
 

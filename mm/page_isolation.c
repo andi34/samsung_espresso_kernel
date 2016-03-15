@@ -103,10 +103,15 @@ __test_page_isolated_in_pageblock(unsigned long pfn, unsigned long end_pfn)
 		if (PageBuddy(page))
 			pfn += 1 << page_order(page);
 		else if (page_count(page) == 0 &&
-				page_private(page) == MIGRATE_ISOLATE)
+				page_private(page) == MIGRATE_ISOLATE) {
 			pfn += 1;
-		else
+			printk(KERN_INFO "%s:%d ", __func__, __LINE__);
+			dump_page(page);
+		} else {
+			printk(KERN_INFO "%s:%d ", __func__, __LINE__);
+			dump_page(page);
 			break;
+		}
 	}
 	if (pfn < end_pfn)
 		return 0;
