@@ -70,9 +70,10 @@ static void mipi_hsi_terminate_communication(
 	switch (iod->format) {
 	case IPC_BOOT:
 	case IPC_BOOT_2:
-		if (mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL].opened)
+		/* remove close for channel zero */
+		/* if (mipi_ld->hsi_channles[HSI_FLASHLESS_CHANNEL].opened)
 			if_hsi_close_channel(&mipi_ld->hsi_channles[
-					HSI_FLASHLESS_CHANNEL]);
+					HSI_FLASHLESS_CHANNEL]); */
 		if (wake_lock_active(&mipi_ld->wlock)) {
 			wake_unlock(&mipi_ld->wlock);
 			mipi_debug("wake_unlock\n");
@@ -783,6 +784,33 @@ static void hsi_conn_reset(struct mipi_link_device *mipi_ld)
 	mipi_info("hsi_conn_reset Done\n");
 }
 
+/* save hsi command for debug */
+static void if_hsi_cmd_save(struct mipi_link_device *mipi_ld,
+			u32 cmd, bool dir)
+{
+	if (mipi_ld->cmd_save_pt >= MIPI_CMD_SAVE_BUF_SIZE)
+		mipi_ld->cmd_save_pt = 0;
+
+	mipi_ld->cmd_save[mipi_ld->cmd_save_pt].time = sched_clock();
+	mipi_ld->cmd_save[mipi_ld->cmd_save_pt].command = cmd;
+	mipi_ld->cmd_save[mipi_ld->cmd_save_pt].direction = dir;
+	mipi_ld->cmd_save_pt++;
+}
+
+/* print hsi commands saved for debug */
+static void if_hsi_cmd_save_print(struct mipi_link_device *mipi_ld)
+{
+	int i;
+
+	printk(KERN_ERR "=== HSI COMMAND DUMP ===\n");
+	for (i = 0; i < MIPI_CMD_SAVE_BUF_SIZE; i++) {
+		printk(KERN_ERR "%04d %d %08x %llu\n", i,
+				mipi_ld->cmd_save[i].direction,
+				mipi_ld->cmd_save[i].command,
+				mipi_ld->cmd_save[i].time);
+	}
+}
+
 static u32 if_hsi_create_cmd(u32 cmd_type, int ch, void *arg)
 {
 	u32 cmd = 0;
@@ -894,6 +922,9 @@ static void if_hsi_cmd_work(struct work_struct *work)
 						retry_count);
 			continue;
 		}
+
+		/* save all tx hsi command */
+		if_hsi_cmd_save(mipi_ld, hsi_cmd->command, 0);
 		mipi_debug("SEND CMD : %08x\n", hsi_cmd->command);
 
 		kfree(hsi_cmd);
@@ -1219,6 +1250,9 @@ retry_send:
 				}
 			}
 
+			/* print all saved hsi command */
+			if_hsi_cmd_save_print(mipi_ld);
+
 			/* cp force crash to get cp ramdump */
 			if (iod->mc->gpio_ap_dump_int)
 				iod->mc->ops.modem_force_crash_exit(
@@ -1396,6 +1430,9 @@ static void if_hsi_read_done(struct hsi_device *dev, unsigned int size)
 				return;
 			}
 
+			/* save all rx hsi command */
+			if_hsi_cmd_save(mipi_ld, *channel->rx_data, 1);
+
 			ret = if_hsi_decode_cmd(mipi_ld, channel->rx_data,
 						&cmd, &ch, &param);
 			if (ret)
@@ -1525,20 +1562,22 @@ static void if_hsi_read_done(struct hsi_device *dev, unsigned int size)
 		if (ret < 0) {
 			mipi_err("recv call fail : %d\n", ret);
 
-			ch = channel->channel_id;
-			param = 0;
-			ret = if_hsi_send_command(mipi_ld,
-					HSI_LL_MSG_CONN_CLOSED, ch, param);
-			if (ret)
-				mipi_err("send_cmd fail=%d\n", ret);
-
-			print_hex_dump_bytes("[HSI]", DUMP_PREFIX_OFFSET,
+			if (channel->packet_size <= 0x40)
+				print_hex_dump_bytes("[HSI]",
+					DUMP_PREFIX_OFFSET,
 					channel->rx_data, channel->packet_size);
-
-			/* to clean the all wrong packet */
-			channel->packet_size = 0;
-			hsi_conn_err_recovery(mipi_ld);
-			return;
+			else {
+				print_hex_dump_bytes("[HSI]",
+					DUMP_PREFIX_OFFSET,
+					channel->rx_data, 0x40 - 0x10);
+				print_hex_dump_bytes("[HSI]",
+					DUMP_PREFIX_OFFSET,
+					(u8 *)channel->rx_data +
+					channel->packet_size - 0x10,
+					0x10);
+			}
+			mipi_err("discard data: channel=%d, packet_size=%d\n",
+				channel->channel_id, channel->packet_size);
 		}
 
 		if ((iod->format == IPC_FMT) ||
@@ -1758,6 +1797,8 @@ struct link_device *mipi_create_link_device(struct platform_device *pdev)
 	skb_queue_head_init(&mipi_ld->ld.sk_raw_tx_q);
 
 	wake_lock_init(&mipi_ld->wlock, WAKE_LOCK_SUSPEND, "mipi_link");
+
+	mipi_ld->cmd_save_pt = 0;
 
 	ld = &mipi_ld->ld;
 
