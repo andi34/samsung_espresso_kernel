@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 363280 2012-10-17 00:53:50Z $
+ * $Id: dhd_sdio.c 398870 2013-04-26 09:42:18Z $
  */
 
 #include <typedefs.h>
@@ -388,6 +388,10 @@ static int tx_packets[NUMPRIO];
 const uint dhd_deferred_tx = 1;
 
 extern uint dhd_watchdog_ms;
+#ifdef BCMSPI_ANDROID
+extern uint *dhd_spi_lockcount;
+#endif /* BCMSPI_ANDROID */
+
 extern void dhd_os_wd_timer(void *bus, uint wdtick);
 
 /* Tx/Rx bounds */
@@ -1073,6 +1077,8 @@ dhdsdio_clk_devsleep_iovar(dhd_bus_t *bus, bool on)
 		bus->kso = on ? FALSE : TRUE;
 	else {
 		DHD_ERROR(("%s: Sleep request failed: on:%d err:%d\n", __FUNCTION__, on, err));
+		if (!on && retry > 2)
+			bus->kso = TRUE;
 	}
 
 	return err;
@@ -1504,8 +1510,8 @@ dhdsdio_func_blocksize(dhd_pub_t *dhd, int function_num, int block_size)
 	int bcmerr = 0;
 	int result;
 
-	bcmerr = dhd_bus_iovar_op(dhd, "sd_blocksize", &func_blk_size, sizeof(int),	&result,
-		sizeof(int), 0);
+	bcmerr = dhd_bus_iovar_op(dhd, "sd_blocksize", &func_blk_size,
+		sizeof(int), &result, sizeof(int), IOV_GET);
 
 	if (bcmerr != BCME_OK) {
 		DHD_ERROR(("%s: Get F%d Block size error\n", __FUNCTION__, function_num));
@@ -1518,9 +1524,8 @@ dhdsdio_func_blocksize(dhd_pub_t *dhd, int function_num, int block_size)
 			function_num, result, block_size));
 
 		func_blk_size = function_num << 16 | block_size;
-		bcmerr = dhd_bus_iovar_op(dhd, "sd_blocksize", &func_blk_size, sizeof(int32),
-			&result, sizeof(int32), 1);
-
+		bcmerr = dhd_bus_iovar_op(dhd, "sd_blocksize", NULL,
+			0, &func_blk_size, sizeof(int32), IOV_SET);
 		if (bcmerr != BCME_OK) {
 			DHD_ERROR(("%s: Set F2 Block size error\n", __FUNCTION__));
 			return BCME_ERROR;
@@ -1532,11 +1537,13 @@ dhdsdio_func_blocksize(dhd_pub_t *dhd, int function_num, int block_size)
 }
 #endif /* CUSTOMER_HW4 && USE_DYNAMIC_F2_BLKSIZE */
 
-#if defined(OOB_INTR_ONLY)
+#if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
 void
 dhd_enable_oob_intr(struct dhd_bus *bus, bool enable)
 {
-#if defined(HW_OOB)
+#if defined(BCMSPI_ANDROID)
+	bcmsdh_intr_enable(bus->sdh);
+#elif defined(HW_OOB)
 	bcmsdh_enable_hw_oob_intr(bus->sdh, enable);
 #else
 	sdpcmd_regs_t *regs = bus->regs;
@@ -1561,7 +1568,7 @@ dhd_enable_oob_intr(struct dhd_bus *bus, bool enable)
 	dhdsdio_clkctl(bus, CLK_SDONLY, FALSE);
 #endif /* !defined(HW_OOB) */
 }
-#endif /* defined(OOB_INTR_ONLY) */
+#endif /* defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID) */
 
 /* Writes a HW/SW header into the packet and sends it. */
 /* Assumes: (a) header space already there, (b) caller holds lock */
@@ -1572,8 +1579,9 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	osl_t *osh;
 	uint8 *frame;
 	uint16 len, pad1 = 0;
-	uint32 swheader;
+	uint32 swheader, act_len = 0;
 	uint retries = 0;
+	uint32 real_pad = 0;
 	bcmsdh_info_t *sdh;
 	void *new;
 	int i;
@@ -1611,7 +1619,7 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 #endif /* WLMEDIA_HTSF */
 
 	/* Add alignment padding, allocate new packet if needed */
-	if (!((uintptr)frame & 1) && (pad1 = ((uintptr)frame % DHD_SDALIGN))) {
+	if ((pad1 = ((uintptr)frame % DHD_SDALIGN))) {
 		if (PKTHEADROOM(osh, pkt) < pad1) {
 			DHD_INFO(("%s: insufficient headroom %d for %d pad1\n",
 			          __FUNCTION__, (int)PKTHEADROOM(osh, pkt), pad1));
@@ -1651,7 +1659,8 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 
 #ifdef BCMSDIOH_TXGLOM
 	if (bus->glom_enable) {
-		uint32 hwheader1 = 0, hwheader2 = 0, act_len = len;
+		uint32 hwheader1 = 0, hwheader2 = 0;
+		act_len = len;
 
 		/* Software tag: channel, sequence number, data offset */
 		swheader = ((chan << SDPCM_CHANNEL_SHIFT) & SDPCM_CHANNEL_MASK) |
@@ -1720,6 +1729,7 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	} else
 #endif /* BCMSDIOH_TXGLOM */
 	{
+	act_len = len;
 	/* Software tag: channel, sequence number, data offset */
 	swheader = ((chan << SDPCM_CHANNEL_SHIFT) & SDPCM_CHANNEL_MASK) | bus->tx_seq |
 	        (((pad1 + SDPCM_HDRLEN) << SDPCM_DOFFSET_SHIFT) & SDPCM_DOFFSET_MASK);
@@ -1764,6 +1774,20 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 			DHD_ERROR(("%s: sending unrounded %d-byte packet\n", __FUNCTION__, len));
 #endif
 	}
+	real_pad = len - act_len;
+	if (PKTTAILROOM(osh, pkt) < real_pad) {
+		DHD_INFO(("%s 3: insufficient tailroom %d for %d real_pad\n",
+		__FUNCTION__, (int)PKTTAILROOM(osh, pkt), real_pad));
+		if (PKTPADTAILROOM(osh, pkt, real_pad)) {
+			DHD_ERROR(("padding error size %d\n", real_pad));
+			ret = BCME_NOMEM;
+			goto done;
+		} else
+			PKTSETLEN(osh, pkt, act_len);
+	}
+#ifdef BCMLXSDMMC
+		PKTSETLEN(osh, pkt, len);
+#endif
 	}
 
 	do {
@@ -1836,6 +1860,10 @@ done:
 		} else
 #endif
 		{
+#ifdef BCMLXSDMMC
+			if (act_len > 0)
+				PKTSETLEN(osh, pkt, act_len);
+#endif /* BCMLXSDMMC */
 	PKTPULL(osh, pkt, SDPCM_HDRLEN + pad1);
 		}
 #ifdef PROP_TXSTATUS
@@ -4380,7 +4408,9 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		bus->intdis = FALSE;
 		if (bus->intr) {
 			DHD_INTR(("%s: enable SDIO device interrupts\n", __FUNCTION__));
+#ifndef BCMSPI_ANDROID
 			bcmsdh_intr_enable(bus->sdh);
+#endif /* !BCMSPI_ANDROID */
 		} else {
 			DHD_INTR(("%s: disable SDIO interrupts\n", __FUNCTION__));
 			bcmsdh_intr_disable(bus->sdh);
@@ -4437,12 +4467,21 @@ dhdsdio_rxfail(dhd_bus_t *bus, bool abort, bool rtx)
 	}
 
 	bcmsdh_cfg_write(sdh, SDIO_FUNC_1, SBSDIO_FUNC1_FRAMECTRL, SFC_RF_TERM, &err);
+	if (err) {
+		DHD_ERROR(("%s: SBSDIO_FUNC1_FRAMECTRL cmd err\n", __FUNCTION__));
+		goto fail;
+	}
 	bus->f1regdata++;
 
 	/* Wait until the packet has been flushed (device/FIFO stable) */
 	for (lastrbc = retries = 0xffff; retries > 0; retries--) {
 		hi = bcmsdh_cfg_read(sdh, SDIO_FUNC_1, SBSDIO_FUNC1_RFRAMEBCHI, NULL);
-		lo = bcmsdh_cfg_read(sdh, SDIO_FUNC_1, SBSDIO_FUNC1_RFRAMEBCLO, NULL);
+		lo = bcmsdh_cfg_read(sdh, SDIO_FUNC_1, SBSDIO_FUNC1_RFRAMEBCLO, &err);
+		if (err) {
+			DHD_ERROR(("%s: SBSDIO_FUNC1_RFAMEBCLO cmd err\n", __FUNCTION__));
+			goto fail;
+		}
+
 		bus->f1regdata += 2;
 
 		if ((hi == 0) && (lo == 0))
@@ -4473,6 +4512,7 @@ dhdsdio_rxfail(dhd_bus_t *bus, bool abort, bool rtx)
 	/* Clear partial in any case */
 	bus->nextlen = 0;
 
+fail:
 	/* If we can't reach the device, signal failure */
 	if (err || bcmsdh_regfail(sdh))
 		bus->dhd->busstate = DHD_BUS_DOWN;
@@ -6018,10 +6058,14 @@ clkwait:
 		DHD_INTR(("%s: enable SDIO interrupts, rxdone %d framecnt %d\n",
 		          __FUNCTION__, rxdone, framecnt));
 		bus->intdis = FALSE;
-#if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
-	bcmsdh_oob_intr_set(1);
-#endif /* defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID) */
+#if defined(OOB_INTR_ONLY)
+		bcmsdh_oob_intr_set(1);
+#endif /* defined(OOB_INTR_ONLY) */
 		bcmsdh_intr_enable(sdh);
+#ifdef BCMSPI_ANDROID
+		if (*dhd_spi_lockcount == 0)
+			bcmsdh_oob_intr_set(1);
+#endif /* BCMSPI_ANDROID */
 	}
 
 #if defined(OOB_INTR_ONLY) && !defined(HW_OOB)
@@ -6190,6 +6234,9 @@ dhdsdio_isr(void *arg)
 		DHD_ERROR(("dhdsdio_isr() w/o interrupt configured!\n"));
 	}
 
+#ifdef BCMSPI_ANDROID
+	bcmsdh_oob_intr_set(0);
+#endif /* BCMSPI_ANDROID */
 	bcmsdh_intr_disable(sdh);
 	bus->intdis = TRUE;
 
@@ -6957,7 +7004,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 	if (dhd_download_fw_on_driverload) {
 		if ((ret = dhd_bus_start(bus->dhd)) != 0) {
 			DHD_ERROR(("%s: dhd_bus_start failed\n", __FUNCTION__));
-			goto fail;
+				goto fail;
 		}
 	}
 	/* Ok, have the per-port tell the stack we're open for business */
@@ -6968,8 +7015,12 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 
 #if defined(CUSTOMER_HW4) && defined(BCMHOST_XTAL_PU_TIME_MOD)
 	bcmsdh_reg_write(bus->sdh, 0x18000620, 2, 11);
+#ifdef BCM4330_CHIP
+	bcmsdh_reg_write(bus->sdh, 0x18000628, 4, 0x0000F801);
+#else
 	bcmsdh_reg_write(bus->sdh, 0x18000628, 4, 0x00F80001);
-#endif
+#endif /* BCM4330_CHIP */
+#endif /* defined(CUSTOMER_HW4) && defined(BCMHOST_XTAL_PU_TIME_MOD */
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	mutex_unlock(&_dhd_sdio_mutex_lock_);
@@ -7950,9 +8001,7 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 					if (bcmerror == BCME_OK) {
 #if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
 						bcmsdh_set_irq(TRUE);
-#ifndef BCMSPI_ANDROID
 						dhd_enable_oob_intr(bus, TRUE);
-#endif /* !BCMSPI_ANDROID */
 #endif /* defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID) */
 
 						bus->dhd->dongle_reset = FALSE;
@@ -8076,6 +8125,22 @@ concate_revision_bcm4334(dhd_bus_t *bus, char *path, int path_len)
 	return 0;
 }
 
+/* Just print chip revision for BCM4330 */
+static int
+concate_revision_bcm4330(dhd_bus_t *bus)
+{
+	uint chipver;
+	chipver = bus->sih->chiprev;
+
+	if (chipver == 3)
+		DHD_ERROR(("---- CHIP bcm4330 B1 ----\n"));
+	else if (chipver == 4)
+		DHD_ERROR(("---- CHIP bcm4330 B2 ----\n"));
+	else
+		DHD_ERROR(("----- Invalid chip version -----\n"));
+	return 0;
+}
+
 int
 concate_revision(dhd_bus_t *bus, char *path, int path_len)
 {
@@ -8084,7 +8149,11 @@ concate_revision(dhd_bus_t *bus, char *path, int path_len)
 		DHD_ERROR(("%s:Bus is Invalid\n", __FUNCTION__));
 		return -1;
 	}
-	if (bus->sih->chip == BCM4334_CHIP_ID) {
+
+	switch (bus->sih->chip) {
+	case BCM4330_CHIP_ID:
+		return concate_revision_bcm4330(bus);
+	case BCM4334_CHIP_ID:
 		return concate_revision_bcm4334(bus, path, path_len);
 	}
 	DHD_ERROR(("REVISION SPECIFIC feature is not required\n"));

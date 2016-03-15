@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_android.c 363784 2012-10-19 06:44:03Z $
+ * $Id: wl_android.c 397119 2013-04-17 08:58:29Z $
  */
 
 #include <linux/module.h>
@@ -80,7 +80,7 @@
 #define CMD_P2P_SD_OFFLOAD		"P2P_SD_"
 #define CMD_P2P_SET_PS		"P2P_SET_PS"
 #define CMD_SET_AP_WPS_P2P_IE 		"SET_AP_WPS_P2P_IE"
-#define CMD_SETROAMMODE		"SETROAMMODE"
+#define CMD_SETROAMMODE 	"SETROAMMODE"
 
 #if defined(SUPPORT_HIDDEN_AP)
 /* Hostapd private command */
@@ -93,6 +93,9 @@
 #endif
 #if defined(SUPPORT_SOFTAP_SINGL_DISASSOC)
 #define CMD_HAPD_STA_DISASSOC		"HAPD_STA_DISASSOC"
+#endif
+#if defined(SUPPORT_TRIGGER_HANG_EVENT)
+#define CMD_TEST_FORCE_HANG		"TEST_FORCE_HANG"
 #endif
 
 /* CCX Private Commands */
@@ -956,7 +959,7 @@ int wl_android_reassoc(struct net_device *dev, char *command, int total_len)
 	}
 	else {
 		band = ((channel <= CH_MAX_2G_CHANNEL) ? WL_CHANSPEC_BAND_2G : WL_CHANSPEC_BAND_5G);
-		reassoc_params.chanspec_list[0] = channel | band | WL_LCHANSPEC_BW_20;
+		reassoc_params.chanspec_list[0] = channel | band | WL_CHANSPEC_BW_20;
 	}
 #else
 	band = ((channel <= CH_MAX_2G_CHANNEL) ? WL_CHANSPEC_BAND_2G : WL_CHANSPEC_BAND_5G);
@@ -1046,7 +1049,7 @@ int wl_android_set_okc_mode(struct net_device *dev, char *command, int total_len
 }
 #endif /* WES_SUPPORT */
 
-#if defined(PNO_SUPPORT)
+#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN)
 static int wl_android_set_pno_setup(struct net_device *dev, char *command, int total_len)
 {
 	wlc_ssid_t ssids_local[MAX_PFN_LIST_COUNT];
@@ -1153,7 +1156,7 @@ static int wl_android_set_pno_setup(struct net_device *dev, char *command, int t
 exit_proc:
 	return res;
 }
-#endif
+#endif /* PNO_SUPPORT && !WL_SCHED_SCAN */
 
 static int wl_android_get_p2p_dev_addr(struct net_device *ndev, char *command, int total_len)
 {
@@ -1359,6 +1362,10 @@ wl_android_set_ssid(struct net_device *dev, const char* hapd_ssid)
 	s32 ret;
 
 	ssid.SSID_len = strlen(hapd_ssid);
+	if (ssid.SSID_len > DOT11_MAX_SSID_LEN) {
+		ssid.SSID_len = DOT11_MAX_SSID_LEN;
+		DHD_ERROR(("%s : Too long SSID Length %d\n", __FUNCTION__, strlen(hapd_ssid)));
+	}
 	bcm_strncpy_s(ssid.SSID, sizeof(ssid.SSID), hapd_ssid, ssid.SSID_len);
 	DHD_INFO(("%s: HAPD_SSID = %s\n", __FUNCTION__, ssid.SSID));
 	ret = wldev_ioctl(dev, WLC_SET_SSID, &ssid, sizeof(wlc_ssid_t), true);
@@ -1464,7 +1471,7 @@ wl_android_sta_diassoc(struct net_device *dev, const char* straddr)
 	scbval.val = htod32(1);
 	bcm_ether_atoe(straddr, &scbval.ea);
 
-	DHD_INFO(("%s: deauth STA: "MACDBG "\n", __FUNCTION__,
+	DHD_ERROR(("%s: deauth STA: "MACDBG "\n", __FUNCTION__,
 		MAC2STRDBG(scbval.ea.octet)));
 
 	wldev_ioctl(dev, WLC_SCB_DEAUTHENTICATE_FOR_REASON, &scbval,
@@ -1769,7 +1776,6 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		strlen(CMD_COUNTRYREV_SET)) == 0) {
 		bytes_written = wl_android_set_country_rev(net, command,
 		priv_cmd.total_len);
-		wl_update_wiphybands(NULL);
 	} else if (strnicmp(command, CMD_COUNTRYREV_GET,
 		strlen(CMD_COUNTRYREV_GET)) == 0) {
 		bytes_written = wl_android_get_country_rev(net, command,
@@ -1834,7 +1840,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		bytes_written = wl_android_set_okc_mode(net, command, priv_cmd.total_len);
 	}
 #endif /* WES_SUPPORT */
-#if defined(PNO_SUPPORT)
+#if defined(PNO_SUPPORT) && !defined(WL_SCHED_SCAN)
 	else if (strnicmp(command, CMD_PNOSSIDCLR_SET, strlen(CMD_PNOSSIDCLR_SET)) == 0) {
 		bytes_written = dhd_dev_pno_reset(net);
 	}
@@ -1845,7 +1851,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		uint pfn_enabled = *(command + strlen(CMD_PNOENABLE_SET) + 1) - '0';
 		bytes_written = dhd_dev_pno_enable(net, pfn_enabled);
 	}
-#endif
+#endif /* PNO_SUPPORT && !WL_SCHED_SCAN */
 	else if (strnicmp(command, CMD_P2P_DEV_ADDR, strlen(CMD_P2P_DEV_ADDR)) == 0) {
 		bytes_written = wl_android_get_p2p_dev_addr(net, command, priv_cmd.total_len);
 	}
@@ -1904,6 +1910,12 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		wl_android_sta_diassoc(net, (const char*)command+skip);
 	}
 #endif /* SUPPORT_SOFTAP_SINGL_DISASSOC */
+#if defined(SUPPORT_TRIGGER_HANG_EVENT)
+	else if (strnicmp(command, CMD_TEST_FORCE_HANG,
+		strlen(CMD_TEST_FORCE_HANG)) == 0) {
+		net_os_send_hang_message(net);
+	}
+#endif /* SUPPORT_TRIGGER_HANG_EVENT */
 #ifdef OKC_SUPPORT
 	else if (strnicmp(command, CMD_OKC_SET_PMK, strlen(CMD_OKC_SET_PMK)) == 0)
 		bytes_written = wl_android_set_pmk(net, command, priv_cmd.total_len);
@@ -2304,10 +2316,6 @@ static int wifi_remove(struct platform_device *pdev)
 static int wifi_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
-#if defined(CONFIG_ARCH_RHEA) || defined(CONFIG_ARCH_CAPRI)
-	if (dhd_os_check_wakelock(bcmsdh_get_drvdata()))
-		return -EBUSY;
-#endif /* defined(CONFIG_ARCH_RHEA) || defined(CONFIG_ARCH_CAPRI) */
 #if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39)) && defined(OOB_INTR_ONLY) && 1
 	bcmsdh_oob_intr_set(0);
 #endif /* (OOB_INTR_ONLY) */
