@@ -176,6 +176,13 @@ config SAMSUNG_DIABLE_SEC_LOG_WHEN_TTY
 		developer can whatching a serial log through out the teminal
 		program.
 
+config SAMSUNG_Y_CABLE
+	bool "Y Cable Support"
+	default n
+	help
+		This is implementation is a proto-type implementation for
+		Y-Cable support P5113 Chipset, still needs to be worked-out.
+
 menu "SAMSUNG Common Debugging Features"
 menuconfig SEC_DEBUG
 	bool "Samsung TN Ramdump Feature"

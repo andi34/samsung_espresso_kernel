@@ -240,11 +240,9 @@ void omap_abe_clean_temporary_buffers(struct omap_abe *abe, u32 id)
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_BT_DL_ADDR,
 				   OMAP_ABE_S_BT_DL_SIZE);
-#if !defined(CONFIG_SND_OMAP4_ABE_USE_ALT_FW)
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_BT_DL_8_48_OSR_LP_DATA_ADDR,
 				   OMAP_ABE_S_BT_DL_8_48_OSR_LP_DATA_SIZE);
-#endif
 		omap_abe_reset_mem(abe, OMAP_ABE_SMEM,
 				   OMAP_ABE_S_BT_DL_48_8_HP_DATA_ADDR,
 				   OMAP_ABE_S_BT_DL_48_8_HP_DATA_SIZE);
@@ -983,7 +981,8 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					   ABE_PARAMETER_ERROR);
 		}
 		if (abe_port[id].format.f == 44100) {
-			abe->MultiFrame[18][1] = ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL_PP);
+			abe->MultiFrame[18][1] =
+				ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL_PP);
 			smem1 = MM_DL_44P1_WPTR_labelID;
 		} else {
 			abe->MultiFrame[18][1] = 0;
@@ -1126,14 +1125,16 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		case OMAP_ABE_TONES_DL_PORT:
 			if (abe_port[id].format.f == 44100) {
 				smem1 = TONES_44P1_WPTR_labelID;
-				abe->MultiFrame[20][1] = ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_TONES_1211);
+				abe->MultiFrame[20][1] =
+				 ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_TONES_1211);
 			} else {
 				abe->MultiFrame[20][1] = 0;
 				smem1 = smem_tones_dl;
 			}
 			break;
 		case OMAP_ABE_PDM_UL_PORT:
-			abe->MultiFrame[0][0] = ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL);
+			abe->MultiFrame[0][0] =
+				ABE_TASK_ID(C_ABE_FW_TASK_IO_PDM_UL);
 			break;
 		case OMAP_ABE_DMIC_PORT:
 			abe->MultiFrame[2][5] = ABE_TASK_ID(C_ABE_FW_TASK_IO_DMIC);
@@ -1146,15 +1147,16 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 		case OMAP_ABE_MM_UL2_PORT:
 			break;
 		case OMAP_ABE_VX_DL_PORT:
-			abe->MultiFrame[22][2] =	ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
+			abe->MultiFrame[22][2] =
+				ABE_TASK_ID(C_ABE_FW_TASK_IO_VX_DL);
 			/* check for 8kHz/16kHz */
 			if (abe_port[id].format.f == 8000) {
 				abe->MultiFrame[21][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
+				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
 				abe->MultiFrame[23][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
-				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48_FIR);
+				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
+				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX]
+				  = ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_8_48_FIR);
 				/*Voice_8k_DL_labelID */
 				smem1 = IO_VX_DL_ASRC_labelID;
 
@@ -1177,9 +1179,9 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 				}
 			} else {
 				abe->MultiFrame[21][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
+				 ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
 				abe->MultiFrame[23][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
+				 ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
 				abe->MultiFrame[TASK_VX_DL_SLT][TASK_VX_DL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_DL_16_48);
 				/* Voice_16k_DL_labelID */
@@ -1209,9 +1211,9 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			/* check for 8kHz/16kHz */
 			if (abe_port[id].format.f == 8000) {
 				abe->MultiFrame[21][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
+				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_8K);
 				abe->MultiFrame[23][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
+				  ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_8K);
 				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
 					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_8);
 				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
@@ -1236,12 +1238,12 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 					/* Do nothing, Scheduling Table has already been patched */
 				}
 			} else {
-				abe->MultiFrame[21][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
-				abe->MultiFrame[23][2] =
-					ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
-				abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
-					ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_16);
+			     abe->MultiFrame[21][2] =
+				ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_RIGHT_16K);
+			     abe->MultiFrame[23][2] =
+				ABE_TASK_ID(C_ABE_FW_TASK_CHECK_IIR_LEFT_16K);
+			     abe->MultiFrame[TASK_VX_UL_SLT][TASK_VX_UL_IDX] =
+				ABE_TASK_ID(C_ABE_FW_TASK_VX_UL_48_16);
 				/* MultiFrame[TASK_ECHO_SLT][TASK_ECHO_IDX] =
 				   ABE_TASK_ID(C_ABE_FW_TASK_ECHO_REF_48_16); */
 				smem1 = Voice_16k_UL_labelID;
@@ -1277,11 +1279,11 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			if (abe_port[id].format.f == 8000) {
 				if (dOppMode32 == DOPPMODE32_OPP100) {
 					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_OPP100_FW_COMPAT);
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_OPP100);
 					smem1 = BT_DL_8k_opp100_labelID;
 				} else {
 					abe->MultiFrame[TASK_BT_DL_48_8_SLT][TASK_BT_DL_48_8_IDX] =
-						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR_FW_COMPAT);
+						ABE_TASK_ID(C_ABE_FW_TASK_BT_DL_48_8_FIR);
 					smem1 = BT_DL_8k_labelID;
 				}
 #if 0
@@ -1394,7 +1396,8 @@ void abe_init_io_tasks(u32 id, abe_data_format_t *format,
 			/* check for CBPr / serial_port / Ping-pong access */
 			if (abe_port[id].format.f == 44100) {
 				smem1 = MM_DL_44P1_WPTR_labelID;
-				abe->MultiFrame[18][1] = ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL);
+				abe->MultiFrame[18][1] =
+					ABE_TASK_ID(C_ABE_FW_TASK_SRC44P1_MMDL);
 			} else {
 				abe->MultiFrame[18][1] = 0;
 				smem1 = smem_mm_dl;

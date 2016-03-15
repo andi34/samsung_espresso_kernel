@@ -692,12 +692,10 @@ static inline int musb_platform_exit(struct musb *musb)
 	return musb->ops->exit(musb);
 }
 
-static inline int musb_platform_vbus_reset(struct musb *musb)
+static inline void musb_platform_vbus_reset(struct musb *musb)
 {
-	if (!musb->ops->vbus_reset)
-		return -EINVAL;
-
-	return musb->ops->vbus_reset(musb);
+	if (musb->ops->vbus_reset)
+		musb->ops->vbus_reset(musb);
 }
 
 static inline int musb_platform_otg_notifications(struct musb *musb, u32 event)

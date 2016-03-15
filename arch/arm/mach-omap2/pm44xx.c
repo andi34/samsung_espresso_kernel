@@ -1433,7 +1433,8 @@ static void __init omap4_pm_setup_errata(void)
 static int __init omap4_pm_init(void)
 {
 	int ret = 0;
-	struct clockdomain *l3_1_clkdm, *l4wkup, *sdma_clkdm, *l3_init_clkdm;
+	struct clockdomain *l3_1_clkdm, *l4wkup, *sdma_clkdm, *l3_init_clkdm, \
+								*l3_gfx_clkdm;
 	struct clockdomain *ducati_clkdm, *l3_2_clkdm;
 	struct clockdomain *l4_per, *l4_cfg, *ivahd_clkdm;
 
@@ -1504,8 +1505,11 @@ static int __init omap4_pm_init(void)
 	sdma_clkdm = clkdm_lookup("l3_dma_clkdm");
 	l3_init_clkdm = clkdm_lookup("l3_init_clkdm");
 
+	l3_gfx_clkdm = clkdm_lookup("l3_gfx_clkdm");
+
 	if ((!mpuss_clkdm) || (!emif_clkdm) || (!l3_1_clkdm) || (!l4wkup) ||
-		(!l3_2_clkdm) || (!ducati_clkdm) || (!l4_per) || (!l4_cfg))
+		(!l3_2_clkdm) || (!ducati_clkdm) || (!l4_per) || \
+						(!l4_cfg) || (!l3_gfx_clkdm))
 		goto err2;
 
 	/* if we cannot ever enable static dependency. */
@@ -1524,6 +1528,7 @@ static int __init omap4_pm_init(void)
 		ret |= clkdm_add_wkdep(ducati_clkdm, emif_clkdm);
 		ret |= clkdm_add_wkdep(ivahd_clkdm, emif_clkdm);
 		ret |= clkdm_add_wkdep(mpuss_clkdm, l4wkup);
+		ret |= clkdm_add_wkdep(l3_gfx_clkdm, emif_clkdm);
 
 		if (ret) {
 			pr_err("Failed to add MPUSS -> L3/EMIF, DUCATI -> L3"

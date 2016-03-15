@@ -523,7 +523,7 @@ static void musb_otg_notifier_work(struct work_struct *data_notifier_work)
 	case USB_EVENT_HOST_NONE:
 #ifdef CONFIG_USB_SAMSUNG_OMAP_NORPM
 		dev_info(musb->controller, "USB host Disconnect. ID float\n");
-		if (!omap2430_async_resumed) {
+		if (!omap2430_async_resumed(musb)) {
 			dev_err(musb->controller, "async suspended. abnormal state.\n");
 			return;
 		}
@@ -575,7 +575,7 @@ static void musb_otg_notifier_work(struct work_struct *data_notifier_work)
 		}
 		otg_shutdown(musb->xceiv);
 #else
-		if (!omap2430_async_resumed) {
+		if (!omap2430_async_resumed(musb)) {
 			dev_err(musb->controller, "async suspended. abnormal state.\n");
 			return;
 		}
@@ -680,8 +680,6 @@ err1:
 
 static void omap2430_musb_enable(struct musb *musb)
 {
-	u8		devctl;
-	unsigned long timeout = jiffies + msecs_to_jiffies(1000);
 	struct device *dev = musb->controller;
 	struct musb_hdrc_platform_data *pdata = dev->platform_data;
 	struct omap_musb_board_data *data = pdata->board_data;

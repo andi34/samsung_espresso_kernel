@@ -207,8 +207,7 @@ __acquires(ep->musb->lock)
 				ep->end_point.name, request,
 				req->request.actual, req->request.length,
 				request->status);
-        
-	/* check the validation of function */
+	/*  check the validation of function */
 	if (req->request.complete)
 		req->request.complete(&req->ep->end_point, &req->request);
 	spin_lock(&musb->lock);
@@ -1774,7 +1773,7 @@ void musb_platform_pullup(struct musb *musb, int is_on)
 	unsigned long	flags;
 	spin_lock_irqsave(&musb->lock, flags);
 	if (musb->softconnect)
-	musb_pullup(musb, is_on);
+		musb_pullup(musb, is_on);
 	spin_unlock_irqrestore(&musb->lock, flags);
 	dev_info(musb->controller, "%s is_on=%d\n", __func__, is_on);
 }

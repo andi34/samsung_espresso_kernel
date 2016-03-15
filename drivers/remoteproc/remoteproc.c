@@ -1146,7 +1146,6 @@ static void rproc_loader_cont(const struct firmware *fw, void *context)
 
 	if (!fw) {
 		dev_err(dev, "%s: failed to load %s\n", __func__, fwfile);
-		dump_stack();
 		goto complete_fw;
 	}
 

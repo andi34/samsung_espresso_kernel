@@ -53,6 +53,8 @@ static void __iomem *ctrl_base;
 static struct otg_transceiver *transceiver;
 static struct omap_phy_tune phy_tune;
 
+/* commenting unused functions */
+#if 0
 static void omap4430_phy_init_for_eyediagram_ref_gen_test(u32 ref_gen_test)
 {
 	u32 read_val = 0;
@@ -82,6 +84,7 @@ static void omap4430_phy_init_for_eyediagram_ref_gen_test(u32 ref_gen_test)
 	iounmap(ctrl_base);
 #endif	/* CONFIG_USB_SWITCH_FSA9480 */
 }
+#endif
 
 static void omap4460_phy_tuning_for_eyediagram(
 	int rterm_cal_offset, int sq_off_code_dac3_offset, u32 hs_code_sel)
@@ -290,7 +293,10 @@ static void omap4430_phy_init_for_eyediagram(
 #endif	/* CONFIG_USB_SWITCH_FSA9480 */
 }
 
+/* commenting unused function */
+#if 0
 static void omap4430_phy_remove_for_eyediagram(void)
 {
 	iounmap(ctrl_base);
 }
+#endif

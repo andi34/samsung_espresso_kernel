@@ -336,7 +336,10 @@ static void espresso_set_vbus_drive(bool enable)
 
 static void espresso_ap_usb_attach(struct omap4_otg *otg)
 {
+	pr_info("[%s]\n", __func__);
 	omap4_vusb_enable(otg, true);
+	omap4430_phy_init_for_eyediagram(SWCAP_TRIM_OFFSET, 0, 0);
+	omap4460_phy_tuning_for_eyediagram(0, 0, 0x1);
 
 	otg->otg.default_a = false;
 	otg->otg.state = OTG_STATE_B_IDLE;
@@ -349,7 +352,7 @@ static void espresso_ap_usb_attach(struct omap4_otg *otg)
 
 static void espresso_ap_usb_detach(struct omap4_otg *otg)
 {
-	omap4_vusb_enable(otg, false);
+	pr_info("[%s]\n", __func__);
 
 	otg->otg.default_a = false;
 	otg->otg.state = OTG_STATE_B_IDLE;
@@ -367,6 +370,7 @@ static void espresso_ap_usb_detach(struct omap4_otg *otg)
 	atomic_notifier_call_chain(&otg->otg.notifier,
 				USB_EVENT_CHARGER_NONE,
 				otg->otg.gadget);
+	omap4_vusb_enable(otg, false);
 }
 
 static void espresso_usb_host_attach(struct omap4_otg *otg)
@@ -383,6 +387,12 @@ static void espresso_usb_host_attach(struct omap4_otg *otg)
 #endif
 
 	omap4_vusb_enable(otg, true);
+	omap4430_phy_init_for_eyediagram
+		(SWCAP_TRIM_OFFSET_HOST, BGTRIM_TRIM_OFFSET_HOST
+			, RTERM_RMX_OFFSET_HOST);
+	omap4460_phy_tuning_for_eyediagram
+		(RTERM_CAL_OFFSET_HOST, SQ_OFF_CODE_DAC3_OFFSET_HOST
+			, HS_CODE_SEL_HOST);
 
 	otg->otg.state = OTG_STATE_A_IDLE;
 	otg->otg.default_a = true;

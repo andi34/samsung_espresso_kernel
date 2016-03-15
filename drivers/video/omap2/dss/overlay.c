@@ -618,10 +618,10 @@ int dss_check_overlay(struct omap_overlay *ovl, struct omap_dss_device *dssdev)
 	 * sending any data. Observation is: when width/height less than 4/5
 	 * no FRAMEDONE INQ ever received for such frame
 	 */
-	if ((info->width < 4 || info->height < 5) &&
-		info->color_mode == OMAP_DSS_COLOR_NV12 ||
-		info->color_mode == OMAP_DSS_COLOR_YUV2 ||
-		info->color_mode == OMAP_DSS_COLOR_UYVY)
+	if ((info->width < 4 || info->height < 5) &&(
+		(info->color_mode == OMAP_DSS_COLOR_NV12) ||
+		(info->color_mode == OMAP_DSS_COLOR_YUV2) ||
+		(info->color_mode == OMAP_DSS_COLOR_UYVY)))
 		if (dssdev->type == OMAP_DISPLAY_TYPE_DSI &&
 			dssdev->phy.dsi.type == OMAP_DSS_DSI_TYPE_CMD_MODE &&
 			cpu_is_omap44xx())  {

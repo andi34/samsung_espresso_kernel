@@ -31,6 +31,10 @@
 /*for sysfs to update sd detect pin's status*/
 static struct device *sd_detection_cmd_dev;
 
+struct mmc_platform_data espresso10_emmc_data = {
+		.built_in	= 1,
+};
+
 static struct omap2_hsmmc_info espresso10_mmc_info[] = {
 	{
 		.mmc		= 2,
@@ -44,6 +48,7 @@ static struct omap2_hsmmc_info espresso10_mmc_info[] = {
 #ifdef CONFIG_PM_RUNTIME
 		.power_saving = false,
 #endif
+		.mmc_data       = &espresso10_emmc_data,
 	},
 	{
 		.mmc		= 1,

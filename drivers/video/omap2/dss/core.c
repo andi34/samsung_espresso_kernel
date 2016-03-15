@@ -39,7 +39,6 @@
 #include <plat/omap-pm.h>
 
 #include <video/omapdss.h>
-
 #include "dss.h"
 #include "dss_features.h"
 
@@ -508,6 +507,12 @@ static int omap_dss_driver_suspend(struct omap_dss_device *dssdev)
 	return r;
 }
 
+static int omap_dss_driver_shutdown(struct omap_dss_device *dssdev)
+{
+	int r = dssdev->driver->shutdown_orig(dssdev);
+	return r;
+}
+
 int omap_dss_register_driver(struct omap_dss_driver *dssdriver)
 {
 	dssdriver->driver.bus = &dss_bus_type;
@@ -527,6 +532,9 @@ int omap_dss_register_driver(struct omap_dss_driver *dssdriver)
 
 	dssdriver->suspend_orig = dssdriver->suspend;
 	dssdriver->suspend = omap_dss_driver_suspend;
+
+	dssdriver->shutdown_orig = dssdriver->shutdown;
+	dssdriver->shutdown = omap_dss_driver_shutdown;
 
 	return driver_register(&dssdriver->driver);
 }
