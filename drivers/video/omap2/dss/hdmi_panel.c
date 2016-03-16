@@ -387,7 +387,12 @@ static void hdmi_hotplug_detect_worker(struct work_struct *work)
 		} else if (state == HPD_STATE_EDID_TRYLAST) {
 			pr_info("EDID read fail after %d times. Giving up",
 						state - HPD_STATE_START);
-			goto done;
+						//added neetesh
+			//goto done;
+			mutex_unlock(&hdmi.hdmi_lock);
+			dssdev->driver->disable(dssdev);
+			omapdss_hdmi_enable_s3d(false);
+			mutex_lock(&hdmi.hdmi_lock);
 		}
 		if (atomic_add_unless(&d->state, 1, HPD_STATE_OFF))
 			queue_delayed_work(my_workq, &d->dwork,

@@ -387,6 +387,8 @@ wake_cpu1:
 			while (gic_dist_disabled())
 				cpu_relax();
 
+		/* checking condition for negetive value of omap4_idle_ready_count as it should never be negetive */
+		BUG_ON(omap4_idle_ready_count < 0);
 		/*
 		 * cpu1 mucks with page tables while it is starting,
 		 * prevent cpu0 executing any processes until cpu1 is up
@@ -564,6 +566,7 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 		omap4_cpu_update_state(cpu, NULL);
 		spin_unlock(&omap4_idle_lock);
 	} else {
+		BUG_ON(omap4_idle_ready_count < 0 );
 		/* wait for cpu0 to request the shared-OFF, or leave idle */
 		while ((omap4_idle_ready_count == 0) && omap4_all_cpus_idle()) {
 			spin_unlock(&omap4_idle_lock);
@@ -585,6 +588,7 @@ static int omap4_enter_idle(struct cpuidle_device *dev,
 		if (omap4_idle_ready_count > 0)
 			omap4_idle_ready_count++;
 		BUG_ON(omap4_idle_ready_count > num_online_cpus());
+		BUG_ON(omap4_idle_ready_count < 0 );
 
 		while (omap4_idle_ready_count != num_online_cpus() &&
 		    omap4_idle_ready_count != 0) {

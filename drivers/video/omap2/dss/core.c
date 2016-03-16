@@ -532,9 +532,12 @@ int omap_dss_register_driver(struct omap_dss_driver *dssdriver)
 
 	dssdriver->suspend_orig = dssdriver->suspend;
 	dssdriver->suspend = omap_dss_driver_suspend;
-
-	dssdriver->shutdown_orig = dssdriver->shutdown;
-	dssdriver->shutdown = omap_dss_driver_shutdown;
+	
+	/* need to check if shutdown of driver exist */
+	if(dssdriver->shutdown){
+		dssdriver->shutdown_orig = dssdriver->shutdown;
+		dssdriver->shutdown = omap_dss_driver_shutdown;
+	}
 
 	return driver_register(&dssdriver->driver);
 }
