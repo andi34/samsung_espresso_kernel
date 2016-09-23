@@ -433,7 +433,7 @@ static int pppopns_ioctl(struct socket *sock, unsigned int cmd, unsigned long ar
 
 static struct pppox_proto pppopns_pppox_proto = {
 	.create = pppopns_create,
-    .ioctl = pppopns_ioctl,
+	.ioctl = pppopns_ioctl,
 	.owner = THIS_MODULE,
 };
 

@@ -129,7 +129,7 @@ static struct omap_dss_board_info espresso_dss_data = {
 };
 
 static struct dsscomp_platform_data dsscomp_config_espresso = {
-	.tiler1d_slotsz = SZ_16M,
+	.tiler1d_slotsz = SZ_8M, /*Changes for HD Video Playback fix(1280*800), refer cl#1173105*/
 };
 static struct sgx_omaplfb_config omaplfb_config_espresso[] = {
 	{
